@@ -207,7 +207,7 @@ if __name__ == "__main__":
     Cosine_scheduler = False
     label_smoothing = 0
     # 是否使用正则化，每一个step，增加0.1秒
-    regularization = True
+    regularization = False
     # 输入的图像为
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
