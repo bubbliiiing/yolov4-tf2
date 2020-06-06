@@ -9,6 +9,7 @@ from nets.yolo4 import yolo_body
 from nets.loss import yolo_loss
 import time
 from utils.utils import get_random_data, get_random_data_with_Mosaic, rand, WarmUpCosineDecayScheduler, ModelCheckpoint
+from functools import partial
 import os
 
 #---------------------------------------------------#
@@ -58,8 +59,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         image_data = np.array(image_data)
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        yield image_data, [*y_true]
-
+        yield image_data, y_true[0], y_true[1], y_true[2]
 
 #---------------------------------------------------#
 #   读入xml文件，并输出y_true
@@ -134,41 +134,50 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
     return y_true
 
 
+@tf.function
+def train_step(imgs, yolo_loss, targets, net, optimizer, regularization):
+    with tf.GradientTape() as tape:
+        # 计算loss
+        P5_output, P4_output, P3_output = net(imgs, training=True)
+        args = [P5_output, P4_output, P3_output] + targets
+        loss_value = yolo_loss(args,anchors,num_classes,label_smoothing=label_smoothing)
+        if regularization:
+            # 加入正则化损失
+            loss_value = tf.reduce_sum(net.losses) + loss_value
+    grads = tape.gradient(loss_value, net.trainable_variables)
+    optimizer.apply_gradients(zip(grads, net.trainable_variables))
+    return loss_value
+
 def fit_one_epoch(net, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val, gen, genval, Epoch, anchors, 
                         num_classes, label_smoothing, regularization=False):
     loss = 0
     val_loss = 0
+    start_time = time.time()
     for iteration, batch in enumerate(gen):
         if iteration>=epoch_size:
             break
-        start_time = time.time()
-        images, targets = batch[0], batch[1]
+        images, target0, target1, target2 = batch[0], batch[1], batch[2], batch[3]
+        targets = [target0, target1, target2]
         targets = [tf.convert_to_tensor(target) for target in targets]
-        with tf.GradientTape() as tape:
-            # 计算loss
-            P5_output, P4_output, P3_output = net(images, training=True)
-            args = [P5_output, P4_output, P3_output] + targets
-            loss_value = yolo_loss(args,anchors,num_classes,label_smoothing=label_smoothing)
-            if regularization:
-                # 加入正则化损失
-                loss_value = tf.reduce_sum(net.losses) + loss_value
-        grads = tape.gradient(loss_value, net.trainable_variables)
-        optimizer.apply_gradients(zip(grads, net.trainable_variables))
+        loss_value = train_step(images, yolo_loss, targets, net, optimizer, regularization)
         loss = loss + loss_value
 
         waste_time = time.time() - start_time
         print('\nEpoch:'+ str(epoch+1) + '/' + str(Epoch))
         print('iter:' + str(iteration) + '/' + str(epoch_size) + ' || Total Loss: %.4f || %.4fs/step' % (loss/(iteration+1),waste_time))
-
+        start_time = time.time()
+        
     print('Start Validation')
     for iteration, batch in enumerate(genval):
         if iteration>=epoch_size_val:
             break
         # 计算验证集loss
-        images_val, targets_val = batch[0], batch[1]
-        P5_output, P4_output, P3_output = net(images_val)
-        targets_val = [tf.convert_to_tensor(target) for target in targets_val]
-        args = [P5_output, P4_output, P3_output] + targets_val
+        images, target0, target1, target2 = batch[0], batch[1], batch[2], batch[3]
+        targets = [target0, target1, target2]
+        targets = [tf.convert_to_tensor(target) for target in targets]
+
+        P5_output, P4_output, P3_output = net(images)
+        args = [P5_output, P4_output, P3_output] + targets
         loss_value = yolo_loss(args,anchors,num_classes,label_smoothing=label_smoothing)
         if regularization:
             # 加入正则化损失
@@ -186,6 +195,11 @@ for gpu in gpus:
     tf.config.experimental.set_memory_growth(gpu, True)
 
 if __name__ == "__main__":
+    #----------------------------------------------#
+    #   视频中说的速度慢问题已经解决了很多
+    #   现在train.py和train_eager.py速度差距不大
+    #   如果还有改进速度的地方可以私信告诉我!
+    #----------------------------------------------#
     # 标签的位置
     annotation_path = '2007_train.txt'
     # 获取classes和anchor的位置
@@ -199,15 +213,26 @@ if __name__ == "__main__":
     # 一共有多少类
     num_classes = len(class_names)
     num_anchors = len(anchors)
-    # 输入的shape大小
-    # 显存比较小可以使用416x416
-    # 现存比较大可以使用608x608
+    #----------------------------------------------#
+    #   输入的shape大小
+    #   显存比较小可以使用416x416
+    #   现存比较大可以使用608x608
+    #----------------------------------------------#
     input_shape = (416,416)
+
+    #-------------------------------#
+    #   tricks的使用设置
+    #-------------------------------#
     mosaic = True
     Cosine_scheduler = False
     label_smoothing = 0
-    # 是否使用正则化，每一个step，增加0.1秒
-    regularization = False
+    # 是否使用正则化
+    regularization = True
+    #-------------------------------#
+    #   Dataloder的使用
+    #-------------------------------#
+    Use_Data_Loader = True
+
     # 输入的图像为
     image_input = Input(shape=(None, None, 3))
     h, w = input_shape
@@ -242,9 +267,22 @@ if __name__ == "__main__":
         batch_size = 2
         # 最大学习率
         learning_rate_base = 1e-3
-        gen = data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic)
-        gen_val = data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False)
+        if Use_Data_Loader:
+            gen = partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size, input_shape = input_shape, 
+                            anchors = anchors, num_classes = num_classes, mosaic=mosaic)
+            gen = tf.data.Dataset.from_generator(gen, (tf.float32, tf.float32, tf.float32, tf.float32))
+                
+            gen_val = partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
+                            input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False)
+            gen_val = tf.data.Dataset.from_generator(gen_val, (tf.float32, tf.float32, tf.float32, tf.float32))
 
+            gen = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+            gen_val = gen_val.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+
+        else:
+            gen = data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic)
+            gen_val = data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False)
+            
         epoch_size = num_train//batch_size
         epoch_size_val = num_val//batch_size
 
@@ -278,9 +316,21 @@ if __name__ == "__main__":
         batch_size = 2
         # 最大学习率
         learning_rate_base = 1e-4
-        gen = data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic)
-        gen_val = data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False)
+        if Use_Data_Loader:
+            gen = partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size, input_shape = input_shape, 
+                            anchors = anchors, num_classes = num_classes, mosaic=mosaic)
+            gen = tf.data.Dataset.from_generator(gen, (tf.float32, tf.float32, tf.float32, tf.float32))
+                
+            gen_val = partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
+                            input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False)
+            gen_val = tf.data.Dataset.from_generator(gen_val, (tf.float32, tf.float32, tf.float32, tf.float32))
 
+            gen = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+            gen_val = gen_val.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+        else:
+            gen = data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic)
+            gen_val = data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False)
+            
         epoch_size = num_train//batch_size
         epoch_size_val = num_val//batch_size
         if Cosine_scheduler:
