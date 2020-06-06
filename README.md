@@ -27,14 +27,14 @@ tensorflow-gpu==2.2.0
 在train.py和train_eager.py文件下：   
 1、mosaic参数可用于控制是否实现Mosaic数据增强。   
 2、Cosine_scheduler可用于控制是否使用学习率余弦退火衰减。   
-3、label_smoothing可用于控制是否Label Smoothing平滑。
+3、label_smoothing可用于控制是否Label Smoothing平滑。  
 
 在train_eager.py文件下：   
 1、regularization参数可用于控制是否实现正则化损失。  
 
 ### 文件下载
 训练所需的yolo4_weights.h5可在百度网盘中下载。  
-链接: https://pan.baidu.com/s/1DNv71lDkeWff2BmnVpgHeg 提取码: myz8
+链接: https://pan.baidu.com/s/1DNv71lDkeWff2BmnVpgHeg 提取码: myz8  
 yolo4_weights.h5是coco数据集的权重。  
 yolo4_voc_weights.h5是voc数据集的权重。
 
