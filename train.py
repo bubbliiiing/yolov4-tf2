@@ -142,7 +142,10 @@ if __name__ == "__main__":
     # 获取classes和anchor的位置
     classes_path = 'model_data/voc_classes.txt'    
     anchors_path = 'model_data/yolo_anchors.txt'
-    # 预训练模型的位置
+    #-------------------------------------------#
+    #   权值文件的下载请看README
+    #   预训练模型的位置
+    #-------------------------------------------#
     weights_path = 'model_data/yolo4_weight.h5'
     # 获得classes和anchor
     class_names = get_classes(classes_path)
