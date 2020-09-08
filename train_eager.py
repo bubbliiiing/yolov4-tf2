@@ -7,9 +7,10 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import TensorBoard, ReduceLROnPlateau, EarlyStopping
 from nets.yolo4 import yolo_body
 from nets.loss import yolo_loss
-import time
 from utils.utils import get_random_data, get_random_data_with_Mosaic, rand, WarmUpCosineDecayScheduler, ModelCheckpoint
 from functools import partial
+from tqdm import tqdm
+import time
 import os
 
 #---------------------------------------------------#
@@ -153,37 +154,43 @@ def fit_one_epoch(net, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val, 
     loss = 0
     val_loss = 0
     start_time = time.time()
-    for iteration, batch in enumerate(gen):
-        if iteration>=epoch_size:
-            break
-        images, target0, target1, target2 = batch[0], batch[1], batch[2], batch[3]
-        targets = [target0, target1, target2]
-        targets = [tf.convert_to_tensor(target) for target in targets]
-        loss_value = train_step(images, yolo_loss, targets, net, optimizer, regularization)
-        loss = loss + loss_value
+    with tqdm(total=epoch_size,desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3) as pbar:
+        for iteration, batch in enumerate(gen):
+            if iteration>=epoch_size:
+                break
+            images, target0, target1, target2 = batch[0], batch[1], batch[2], batch[3]
+            targets = [target0, target1, target2]
+            targets = [tf.convert_to_tensor(target) for target in targets]
+            loss_value = train_step(images, yolo_loss, targets, net, optimizer, regularization)
+            loss = loss + loss_value.numpy()
 
-        waste_time = time.time() - start_time
-        print('\nEpoch:'+ str(epoch+1) + '/' + str(Epoch))
-        print('iter:' + str(iteration) + '/' + str(epoch_size) + ' || Total Loss: %.4f || %.4fs/step' % (loss/(iteration+1),waste_time))
-        start_time = time.time()
-        
+            waste_time = time.time() - start_time
+            pbar.set_postfix(**{'total_loss': float(loss) / (iteration + 1), 
+                                'step/s'    : waste_time})
+            pbar.update(1)
+            start_time = time.time()
+            
     print('Start Validation')
-    for iteration, batch in enumerate(genval):
-        if iteration>=epoch_size_val:
-            break
-        # 计算验证集loss
-        images, target0, target1, target2 = batch[0], batch[1], batch[2], batch[3]
-        targets = [target0, target1, target2]
-        targets = [tf.convert_to_tensor(target) for target in targets]
+    with tqdm(total=epoch_size_val, desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3) as pbar:
+        for iteration, batch in enumerate(genval):
+            if iteration>=epoch_size_val:
+                break
+            # 计算验证集loss
+            images, target0, target1, target2 = batch[0], batch[1], batch[2], batch[3]
+            targets = [target0, target1, target2]
+            targets = [tf.convert_to_tensor(target) for target in targets]
 
-        P5_output, P4_output, P3_output = net(images)
-        args = [P5_output, P4_output, P3_output] + targets
-        loss_value = yolo_loss(args,anchors,num_classes,label_smoothing=label_smoothing)
-        if regularization:
-            # 加入正则化损失
-            loss_value = tf.reduce_sum(net.losses) + loss_value
-        # 更新验证集loss
-        val_loss = val_loss + loss_value
+            P5_output, P4_output, P3_output = net(images)
+            args = [P5_output, P4_output, P3_output] + targets
+            loss_value = yolo_loss(args,anchors,num_classes,label_smoothing=label_smoothing)
+            if regularization:
+                # 加入正则化损失
+                loss_value = tf.reduce_sum(net.losses) + loss_value
+            # 更新验证集loss
+            val_loss = val_loss + loss_value.numpy()
+
+            pbar.set_postfix(**{'total_loss': float(val_loss)/ (iteration + 1)})
+            pbar.update(1)
 
     print('Finish Validation')
     print('\nEpoch:'+ str(epoch+1) + '/' + str(Epoch))
