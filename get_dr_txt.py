@@ -3,18 +3,17 @@
 #   具体视频教程可查看
 #   https://www.bilibili.com/video/BV1zE411u7Vw
 #----------------------------------------------------#
-from yolo import YOLO
-from PIL import Image
-import tensorflow as tf
-from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
-from tensorflow.compat.v1.keras import backend as K
-from utils.utils import letterbox_image
-from tensorflow.keras.layers import Input
+from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Input, Lambda
 from nets.yolo4 import yolo_body,yolo_eval
-import colorsys
+from utils.utils import letterbox_image
+from tqdm import tqdm
+from yolo import YOLO
+from PIL import Image
 import numpy as np
+import tensorflow as tf
+import colorsys
 import os
 
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -117,12 +116,11 @@ if not os.path.exists("./input/detection-results"):
 if not os.path.exists("./input/images-optional"):
     os.makedirs("./input/images-optional")
 
-for image_id in image_ids:
+for image_id in tqdm(image_ids):
     image_path = "./VOCdevkit/VOC2007/JPEGImages/"+image_id+".jpg"
     image = Image.open(image_path)
     # 开启后在之后计算mAP可以可视化
     # image.save("./input/images-optional/"+image_id+".jpg")
     yolo.detect_image(image_id,image)
-    print(image_id," done!")
     
 print("Conversion completed!")
