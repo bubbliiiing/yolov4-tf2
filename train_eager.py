@@ -285,7 +285,7 @@ if __name__ == "__main__":
     # 调整非主干模型first
     if True:
         Init_epoch = 0
-        Freeze_epoch = 25
+        Freeze_epoch = 50
         # batch_size大小，每次喂入多少数据
         batch_size = 2
         # 最大学习率
@@ -333,8 +333,8 @@ if __name__ == "__main__":
 
     # 解冻后训练
     if True:
-        Freeze_epoch = 25
-        Epoch = 50
+        Freeze_epoch = 50
+        Epoch = 100
         # batch_size大小，每次喂入多少数据
         batch_size = 2
         # 最大学习率
