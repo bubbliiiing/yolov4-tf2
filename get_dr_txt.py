@@ -16,8 +16,9 @@ import tensorflow as tf
 import colorsys
 import os
 
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+gpus = tf.config.experimental.list_physical_devices(device_type='GPU')
+for gpu in gpus:
+    tf.config.experimental.set_memory_growth(gpu, True)
 
 class mAP_YOLO(YOLO):
     #---------------------------------------------------#
@@ -25,6 +26,7 @@ class mAP_YOLO(YOLO):
     #---------------------------------------------------#
     def generate(self):
         self.score = 0.01
+        self.iou = 0.5
         model_path = os.path.expanduser(self.model_path)
         assert model_path.endswith('.h5'), 'Keras model or weights must be a .h5 file.'
         
