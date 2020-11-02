@@ -134,23 +134,25 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
 
     return y_true
 
-
-@tf.function
-def train_step(imgs, yolo_loss, targets, net, optimizer, regularization):
-    with tf.GradientTape() as tape:
-        # 计算loss
-        P5_output, P4_output, P3_output = net(imgs, training=True)
-        args = [P5_output, P4_output, P3_output] + targets
-        loss_value = yolo_loss(args,anchors,num_classes,label_smoothing=label_smoothing)
-        if regularization:
-            # 加入正则化损失
-            loss_value = tf.reduce_sum(net.losses) + loss_value
-    grads = tape.gradient(loss_value, net.trainable_variables)
-    optimizer.apply_gradients(zip(grads, net.trainable_variables))
-    return loss_value
+# 防止bug
+def get_train_step_fn():
+    @tf.function
+    def train_step(imgs, yolo_loss, targets, net, optimizer, regularization):
+        with tf.GradientTape() as tape:
+            # 计算loss
+            P5_output, P4_output, P3_output = net(imgs, training=True)
+            args = [P5_output, P4_output, P3_output] + targets
+            loss_value = yolo_loss(args,anchors,num_classes,label_smoothing=label_smoothing)
+            if regularization:
+                # 加入正则化损失
+                loss_value = tf.reduce_sum(net.losses) + loss_value
+        grads = tape.gradient(loss_value, net.trainable_variables)
+        optimizer.apply_gradients(zip(grads, net.trainable_variables))
+        return loss_value
+    return train_step
 
 def fit_one_epoch(net, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val, gen, genval, Epoch, anchors, 
-                        num_classes, label_smoothing, regularization=False):
+                        num_classes, label_smoothing, regularization=False, train_step=None):
     loss = 0
     val_loss = 0
     start_time = time.time()
@@ -327,7 +329,7 @@ if __name__ == "__main__":
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         for epoch in range(Init_epoch,Freeze_epoch):
             fit_one_epoch(model_body, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val,gen, gen_val, 
-                        Freeze_epoch, anchors, num_classes, label_smoothing, regularization)
+                        Freeze_epoch, anchors, num_classes, label_smoothing, regularization, get_train_step_fn())
                         
     for i in range(freeze_layers): model_body.layers[i].trainable = True
 
@@ -374,4 +376,4 @@ if __name__ == "__main__":
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         for epoch in range(Freeze_epoch,Epoch):
             fit_one_epoch(model_body, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val,gen, gen_val, 
-                        Epoch, anchors, num_classes, label_smoothing, regularization)
+                        Epoch, anchors, num_classes, label_smoothing, regularization, get_train_step_fn())
