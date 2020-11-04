@@ -168,6 +168,7 @@ def fit_one_epoch(net, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val, 
 
             waste_time = time.time() - start_time
             pbar.set_postfix(**{'total_loss': float(loss) / (iteration + 1), 
+                                'lr'        : optimizer._decayed_lr(tf.float32).numpy(),
                                 'step/s'    : waste_time})
             pbar.update(1)
             start_time = time.time()
