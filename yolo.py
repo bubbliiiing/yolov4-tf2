@@ -19,15 +19,15 @@ from utils.utils import letterbox_image
 #--------------------------------------------#
 class YOLO(object):
     _defaults = {
-        "model_path": 'model_data/yolo4_weight.h5',
-        "anchors_path": 'model_data/yolo_anchors.txt',
-        "classes_path": 'model_data/coco_classes.txt',
-        "score" : 0.5,
-        "iou" : 0.3,
-        "eager" : False,
+        "model_path"        : 'model_data/yolo4_weight.h5',
+        "anchors_path"      : 'model_data/yolo_anchors.txt',
+        "classes_path"      : 'model_data/coco_classes.txt',
+        "score"             : 0.5,
+        "iou"               : 0.3,
+        "eager"             : False,
         # 显存比较小可以使用416x416
         # 显存比较大可以使用608x608
-        "model_image_size" : (416, 416)
+        "model_image_size"  : (416, 416)
     }
 
     @classmethod
