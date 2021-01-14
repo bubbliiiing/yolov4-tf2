@@ -1,6 +1,9 @@
-from tensorflow.keras import backend as K
-import tensorflow as tf
 import math
+
+import tensorflow as tf
+from tensorflow.keras import backend as K
+
+
 def box_ciou(b1, b2):
     """
     输入为：
@@ -49,4 +52,5 @@ def box_ciou(b1, b2):
     ciou = ciou - alpha * v
 
     ciou = K.expand_dims(ciou, -1)
+    ciou = tf.where(tf.math.is_nan(ciou), tf.zeros_like(ciou), ciou)
     return ciou

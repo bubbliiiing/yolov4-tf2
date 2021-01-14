@@ -1,21 +1,24 @@
-import os
-import numpy as np
-import copy
 import colorsys
-import tensorflow as tf
+import copy
+import os
 from timeit import default_timer as timer
+
+import numpy as np
+import tensorflow as tf
+from PIL import Image, ImageDraw, ImageFont
 from tensorflow.compat.v1.keras import backend as K
-from tensorflow.keras.models import load_model
-from tensorflow.keras.layers import Input
 from tensorflow.keras.layers import Input, Lambda
-from tensorflow.keras.models import Model
-from PIL import Image, ImageFont, ImageDraw
-from nets.yolo4 import yolo_body,yolo_eval
+from tensorflow.keras.models import Model, load_model
+
+from nets.yolo4 import yolo_body, yolo_eval
 from utils.utils import letterbox_image
+
 
 #--------------------------------------------#
 #   使用自己训练好的模型预测需要修改2个参数
 #   model_path和classes_path都需要修改！
+#   如果出现shape不匹配，一定要注意
+#   训练时的model_path和classes_path参数的修改
 #--------------------------------------------#
 class YOLO(object):
     _defaults = {
@@ -24,7 +27,7 @@ class YOLO(object):
         "classes_path"      : 'model_data/coco_classes.txt',
         "score"             : 0.5,
         "iou"               : 0.3,
-        "eager"             : False,
+        "eager"             : True,
         "max_boxes"         : 100,
         # 显存比较小可以使用416x416
         # 显存比较大可以使用608x608
@@ -71,18 +74,21 @@ class YOLO(object):
         return np.array(anchors).reshape(-1, 2)
 
     #---------------------------------------------------#
-    #   获得所有的分类
+    #   载入模型
     #---------------------------------------------------#
     def generate(self):
         model_path = os.path.expanduser(self.model_path)
         assert model_path.endswith('.h5'), 'Keras model or weights must be a .h5 file.'
         
-        # 计算anchor数量
+        #---------------------------------------------------#
+        #   计算先验框的数量和种类的数量
+        #---------------------------------------------------#
         num_anchors = len(self.anchors)
         num_classes = len(self.class_names)
 
-        # 载入模型，如果原来的模型里已经包括了模型结构则直接载入。
-        # 否则先构建模型再载入
+        #---------------------------------------------------------#
+        #   载入模型
+        #---------------------------------------------------------#
         self.yolo_model = yolo_body(Input(shape=(None,None,3)), num_anchors//3, num_classes)
         self.yolo_model.load_weights(self.model_path)
 
@@ -101,6 +107,10 @@ class YOLO(object):
         np.random.shuffle(self.colors)
         np.random.seed(None)
 
+        #---------------------------------------------------------#
+        #   在yolo_eval函数中，我们会对预测结果进行后处理
+        #   后处理的内容包括，解码、非极大抑制、门限筛选等
+        #---------------------------------------------------------#
         if self.eager:
             self.input_image_shape = Input([2,],batch_size=1)
             inputs = [*self.yolo_model.output, self.input_image_shape]
@@ -115,23 +125,36 @@ class YOLO(object):
                     num_classes, self.input_image_shape, max_boxes=self.max_boxes,
                     score_threshold=self.score, iou_threshold=self.iou)
  
+    @tf.function
+    def get_pred(self, image_data, input_image_shape):
+        out_boxes, out_scores, out_classes = self.yolo_model([image_data, input_image_shape], training=False)
+        return out_boxes, out_scores, out_classes
+
     #---------------------------------------------------#
     #   检测图片
     #---------------------------------------------------#
     def detect_image(self, image):
         start = timer()
 
-        # 调整图片使其符合输入要求
+        #---------------------------------------------------------#
+        #   给图像增加灰条，实现不失真的resize
+        #---------------------------------------------------------#
         new_image_size = (self.model_image_size[1],self.model_image_size[0])
         boxed_image = letterbox_image(image, new_image_size)
         image_data = np.array(boxed_image, dtype='float32')
         image_data /= 255.
+        #---------------------------------------------------------#
+        #   添加上batch_size维度
+        #---------------------------------------------------------#
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
 
+        #---------------------------------------------------------#
+        #   将图像输入网络当中进行预测！
+        #---------------------------------------------------------#
         if self.eager:
             # 预测结果
             input_image_shape = np.expand_dims(np.array([image.size[1], image.size[0]], dtype='float32'), 0)
-            out_boxes, out_scores, out_classes = self.yolo_model.predict([image_data, input_image_shape]) 
+            out_boxes, out_scores, out_classes = self.get_pred(image_data, input_image_shape) 
         else:
             # 预测结果
             out_boxes, out_scores, out_classes = self.sess.run(
@@ -143,12 +166,14 @@ class YOLO(object):
                 })
         
         print('Found {} boxes for {}'.format(len(out_boxes), 'img'))
-        # 设置字体
+
+        #---------------------------------------------------------#
+        #   设置字体
+        #---------------------------------------------------------#
         font = ImageFont.truetype(font='font/simhei.ttf',
                     size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
-        thickness = (image.size[0] + image.size[1]) // 300
-
-        small_pic=[]
+        thickness = max((image.size[0] + image.size[1]) // 300, 1)
+        
         for i, c in list(enumerate(out_classes)):
             predicted_class = self.class_names[c]
             box = out_boxes[i]
@@ -164,13 +189,12 @@ class YOLO(object):
             bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
             right = min(image.size[0], np.floor(right + 0.5).astype('int32'))
 
-
             # 画框框
             label = '{} {:.2f}'.format(predicted_class, score)
             draw = ImageDraw.Draw(image)
             label_size = draw.textsize(label, font)
             label = label.encode('utf-8')
-            print(label)
+            print(label, top, left, bottom, right)
             
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]])
