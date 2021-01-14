@@ -329,13 +329,11 @@ if __name__ == "__main__":
     print('Load weights {}.'.format(weights_path))
     model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
     
-    #-------------------------------------------------------------------------------#
-    #   训练参数的设置
-    #   logging表示tensorboard的保存地址
-    #   checkpoint用于设置权值保存的细节，period用于修改多少epoch保存一次
-    #   reduce_lr用于设置学习率下降的方式
-    #   early_stopping用于设定早停，val_loss多次不下降自动结束训练，表示模型基本收敛
-    #-------------------------------------------------------------------------------#
+    #----------------------------------------------------------------------#
+    #   验证集的划分在train.py代码里面进行
+    #   2007_test.txt和2007_val.txt里面没有内容是正常的。训练不会使用到。
+    #   当前划分方式下，验证集和训练集的比例为1:9
+    #----------------------------------------------------------------------#
     val_split = 0.1
     with open(annotation_path) as f:
         lines = f.readlines()
