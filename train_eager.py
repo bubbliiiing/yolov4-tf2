@@ -393,7 +393,7 @@ if __name__ == "__main__":
             lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=learning_rate_base,
                 decay_steps=epoch_size,
-                decay_rate=0.95,
+                decay_rate=0.92,
                 staircase=True
             )
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
@@ -439,7 +439,7 @@ if __name__ == "__main__":
             lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
                 initial_learning_rate=learning_rate_base,
                 decay_steps = epoch_size,
-                decay_rate=0.95,
+                decay_rate=0.92,
                 staircase=True
             )
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
