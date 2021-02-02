@@ -352,7 +352,7 @@ if __name__ == "__main__":
     #   Epoch总训练世代
     #   提示OOM或者显存不足请调小Batch_size
     #------------------------------------------------------#
-    freeze_layers = 302
+    freeze_layers = 249
     for i in range(freeze_layers): model_body.layers[i].trainable = False
     print('Freeze the first {} layers of total {} layers.'.format(freeze_layers, len(model_body.layers)))
     
@@ -365,11 +365,11 @@ if __name__ == "__main__":
 
         if Use_Data_Loader:
             gen = partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size, input_shape = input_shape, 
-                            anchors = anchors, num_classes = num_classes, mosaic=mosaic)
+                            anchors = anchors, num_classes = num_classes, mosaic=mosaic, random=True)
             gen = tf.data.Dataset.from_generator(gen, (tf.float32, tf.float32, tf.float32, tf.float32))
                 
             gen_val = partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
-                            input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False)
+                            input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False, random=False)
             gen_val = tf.data.Dataset.from_generator(gen_val, (tf.float32, tf.float32, tf.float32, tf.float32))
 
             gen = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
@@ -413,11 +413,11 @@ if __name__ == "__main__":
 
         if Use_Data_Loader:
             gen = partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size, input_shape = input_shape, 
-                            anchors = anchors, num_classes = num_classes, mosaic=mosaic, random=True),
+                            anchors = anchors, num_classes = num_classes, mosaic=mosaic, random=True)
             gen = tf.data.Dataset.from_generator(gen, (tf.float32, tf.float32, tf.float32, tf.float32))
                 
             gen_val = partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
-                            input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False, random=False),
+                            input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False, random=False)
             gen_val = tf.data.Dataset.from_generator(gen_val, (tf.float32, tf.float32, tf.float32, tf.float32))
 
             gen = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
