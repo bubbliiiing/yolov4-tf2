@@ -16,7 +16,7 @@
 ### 性能情况
 | 训练数据集 | 权值文件名称 | 测试数据集 | 输入图片大小 | mAP 0.5:0.95 | mAP 0.5 |
 | :-----: | :-----: | :------: | :------: | :------: | :-----: |
-| VOC07+12+COCO | [yolo4_voc_weights.h5](https://github.com/bubbliiiing/yolov4-tf2/releases/download/v1.0/yolo4_voc_weights.h5) | VOC-Test07 | 416x416 | - | 83.9
+| VOC07+12+COCO | [yolo4_voc_weights.h5](https://github.com/bubbliiiing/yolov4-tf2/releases/download/v1.0/yolo4_voc_weights.h5) | VOC-Test07 | 416x416 | - | 88.8
 | COCO-Train2017 | [yolo4_weight.h5](https://github.com/bubbliiiing/yolov4-tf2/releases/download/v1.0/yolo4_weight.h5) | COCO-Val2017 | 416x416 | 43.1 | 66.0
 
 ### 实现的内容
@@ -47,7 +47,7 @@ tensorflow-gpu==2.2.0
 
 ### 文件下载
 训练所需的yolo4_weights.h5可在百度网盘中下载。  
-链接: https://pan.baidu.com/s/1DNv71lDkeWff2BmnVpgHeg 提取码: myz8  
+链接: https://pan.baidu.com/s/1jDOPTel7mTXxNDliuKbmvA 提取码: irgc   
 yolo4_weights.h5是coco数据集的权重。  
 yolo4_voc_weights.h5是voc数据集的权重。
 
