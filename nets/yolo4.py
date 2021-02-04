@@ -2,6 +2,7 @@ from functools import wraps
 
 import numpy as np
 import tensorflow as tf
+from tensorflow import keras
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import (Add, BatchNormalization, Concatenate,
                                      Conv2D, LeakyReLU, MaxPooling2D,
@@ -101,7 +102,7 @@ def yolo_body(inputs, num_anchors, num_classes):
     #   y3=(batch_size,52,52,3,85)
     #---------------------------------------------------#
     P3_output = DarknetConv2D_BN_Leaky(256, (3,3))(P3)
-    P3_output = DarknetConv2D(num_anchors*(num_classes+5), (1,1))(P3_output)
+    P3_output = DarknetConv2D(num_anchors*(num_classes+5), (1,1), kernel_initializer=keras.initializers.RandomNormal(mean=0.0, stddev=0.01))(P3_output)
 
     # 52,52,128 -> 26,26,256
     P3_downsample = ZeroPadding2D(((1,0),(1,0)))(P3)
@@ -116,7 +117,7 @@ def yolo_body(inputs, num_anchors, num_classes):
     #   y2=(batch_size,26,26,3,85)
     #---------------------------------------------------#
     P4_output = DarknetConv2D_BN_Leaky(512, (3,3))(P4)
-    P4_output = DarknetConv2D(num_anchors*(num_classes+5), (1,1))(P4_output)
+    P4_output = DarknetConv2D(num_anchors*(num_classes+5), (1,1), kernel_initializer=keras.initializers.RandomNormal(mean=0.0, stddev=0.01))(P4_output)
     
     # 26,26,256 -> 13,13,512
     P4_downsample = ZeroPadding2D(((1,0),(1,0)))(P4)
@@ -131,7 +132,7 @@ def yolo_body(inputs, num_anchors, num_classes):
     #   y1=(batch_size,13,13,3,85)
     #---------------------------------------------------#
     P5_output = DarknetConv2D_BN_Leaky(1024, (3,3))(P5)
-    P5_output = DarknetConv2D(num_anchors*(num_classes+5), (1,1))(P5_output)
+    P5_output = DarknetConv2D(num_anchors*(num_classes+5), (1,1), kernel_initializer=keras.initializers.RandomNormal(mean=0.0, stddev=0.01))(P5_output)
 
     return Model(inputs, [P5_output, P4_output, P3_output])
 
