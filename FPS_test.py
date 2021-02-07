@@ -23,9 +23,13 @@ class FPS_YOLO(YOLO):
     def get_FPS(self, image, test_interval):
         #---------------------------------------------------------#
         #   给图像增加灰条，实现不失真的resize
+        #   也可以直接resize进行识别
         #---------------------------------------------------------#
-        new_image_size = (self.model_image_size[1],self.model_image_size[0])
-        boxed_image = letterbox_image(image, new_image_size)
+        if self.letterbox_image:
+            boxed_image = letterbox_image(image, (self.model_image_size[1],self.model_image_size[0]))
+        else:
+            boxed_image = image.convert('RGB')
+            boxed_image = boxed_image.resize((self.model_image_size[1],self.model_image_size[0]), Image.BICUBIC)
         image_data = np.array(boxed_image, dtype='float32')
         image_data /= 255.
         #---------------------------------------------------------#
