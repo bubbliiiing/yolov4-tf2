@@ -3,18 +3,20 @@
 #   具体视频教程可查看
 #   https://www.bilibili.com/video/BV1zE411u7Vw
 #----------------------------------------------------#
-from tensorflow.keras.models import Model
-from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Input, Lambda
-from nets.yolo4 import yolo_body,yolo_eval
-from utils.utils import letterbox_image
-from tqdm import tqdm
-from yolo import YOLO
-from PIL import Image
-import numpy as np
-import tensorflow as tf
 import colorsys
 import os
+
+import numpy as np
+import tensorflow as tf
+from PIL import Image
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Input, Lambda
+from tensorflow.keras.models import Model
+from tqdm import tqdm
+
+from nets.yolo4 import yolo_body, yolo_eval
+from utils.utils import letterbox_image
+from yolo import YOLO
 
 gpus = tf.config.experimental.list_physical_devices(device_type='GPU')
 for gpu in gpus:
