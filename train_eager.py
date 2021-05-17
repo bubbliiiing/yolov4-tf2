@@ -1,21 +1,15 @@
-import os
 import time
 from functools import partial
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras.backend as K
-from tensorflow.keras.callbacks import (EarlyStopping, ReduceLROnPlateau,
-                                        TensorBoard)
-from tensorflow.keras.layers import Input, Lambda
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import Input
 from tqdm import tqdm
 
 from nets.loss import yolo_loss
 from nets.yolo4 import yolo_body
-from utils.utils import (ModelCheckpoint, WarmUpCosineDecayScheduler,
-                         get_random_data, get_random_data_with_Mosaic, rand)
+from utils.utils import (LossHistory, get_random_data,
+                         get_random_data_with_Mosaic)
 
 
 #---------------------------------------------------#
@@ -200,7 +194,7 @@ def fit_one_epoch(net, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val, 
                         num_classes, label_smoothing, regularization=False, normalize=True, train_step=None):
     loss = 0
     val_loss = 0
-    start_time = time.time()
+    print('Start Train')
     with tqdm(total=epoch_size,desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3) as pbar:
         for iteration, batch in enumerate(gen):
             if iteration>=epoch_size:
@@ -211,12 +205,9 @@ def fit_one_epoch(net, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val, 
             loss_value = train_step(images, yolo_loss, targets, net, optimizer, regularization, normalize)
             loss = loss + loss_value.numpy()
 
-            waste_time = time.time() - start_time
             pbar.set_postfix(**{'total_loss': float(loss) / (iteration + 1), 
-                                'lr'        : optimizer._decayed_lr(tf.float32).numpy(),
-                                'step/s'    : waste_time})
+                                'lr'        : optimizer._decayed_lr(tf.float32).numpy()})
             pbar.update(1)
-            start_time = time.time()
             
     print('Start Validation')
     with tqdm(total=epoch_size_val, desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3) as pbar:
@@ -240,6 +231,8 @@ def fit_one_epoch(net, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val, 
             pbar.set_postfix(**{'total_loss': float(val_loss)/ (iteration + 1)})
             pbar.update(1)
 
+    logs = {'loss': loss.numpy()/(epoch_size+1), 'val_loss': val_loss.numpy()/(epoch_size_val+1)}
+    loss_history.on_epoch_end([], logs)
     print('Finish Validation')
     print('Epoch:'+ str(epoch+1) + '/' + str(Epoch))
     print('Total Loss: %.4f || Val Loss: %.4f ' % (loss/(epoch_size+1),val_loss/(epoch_size_val+1)))
@@ -329,6 +322,7 @@ if __name__ == "__main__":
     #------------------------------------------------------#
     print('Load weights {}.'.format(weights_path))
     model_body.load_weights(weights_path, by_name=True, skip_mismatch=True)
+    loss_history = LossHistory(log_dir)
     
     #----------------------------------------------------------------------#
     #   验证集的划分在train.py代码里面进行
@@ -382,6 +376,9 @@ if __name__ == "__main__":
         epoch_size = num_train//batch_size
         epoch_size_val = num_val//batch_size
 
+        if epoch_size == 0 or epoch_size_val == 0:
+            raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
+
         if Cosine_scheduler:
             lr_schedule = tf.keras.experimental.CosineDecayRestarts(
                 initial_learning_rate = learning_rate_base, 
@@ -396,6 +393,7 @@ if __name__ == "__main__":
                 decay_rate=0.92,
                 staircase=True
             )
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         for epoch in range(Init_epoch,Freeze_epoch):
@@ -428,6 +426,10 @@ if __name__ == "__main__":
             
         epoch_size = num_train//batch_size
         epoch_size_val = num_val//batch_size
+
+        if epoch_size == 0 or epoch_size_val == 0:
+            raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
+
         if Cosine_scheduler:
             lr_schedule = tf.keras.experimental.CosineDecayRestarts(
                 initial_learning_rate = learning_rate_base, 
@@ -442,6 +444,7 @@ if __name__ == "__main__":
                 decay_rate=0.92,
                 staircase=True
             )
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
         for epoch in range(Freeze_epoch,Epoch):

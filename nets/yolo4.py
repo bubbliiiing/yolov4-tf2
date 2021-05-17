@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
+from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.layers import (Add, BatchNormalization, Concatenate,
                                      Conv2D, LeakyReLU, MaxPooling2D,
                                      UpSampling2D, ZeroPadding2D)
@@ -22,7 +23,7 @@ from nets.CSPdarknet53 import darknet_body
 @wraps(Conv2D)
 def DarknetConv2D(*args, **kwargs):
     # darknet_conv_kwargs = {'kernel_regularizer': l2(5e-4)}
-    darknet_conv_kwargs = {}
+    darknet_conv_kwargs = {'kernel_initializer' : RandomNormal(stddev=0.02)}
     darknet_conv_kwargs['padding'] = 'valid' if kwargs.get('strides')==(2,2) else 'same'
     darknet_conv_kwargs.update(kwargs)
     return Conv2D(*args, **darknet_conv_kwargs)

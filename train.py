@@ -2,7 +2,6 @@ import os
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras.backend as K
 from tensorflow.keras.callbacks import (EarlyStopping, ReduceLROnPlateau,
                                         TensorBoard)
 from tensorflow.keras.layers import Input, Lambda
@@ -11,8 +10,8 @@ from tensorflow.keras.optimizers import Adam
 
 from nets.loss import yolo_loss
 from nets.yolo4 import yolo_body
-from utils.utils import (ModelCheckpoint, WarmUpCosineDecayScheduler,
-                         get_random_data, get_random_data_with_Mosaic, rand)
+from utils.utils import (ModelCheckpoint, WarmUpCosineDecayScheduler, LossHistory, 
+                         get_random_data, get_random_data_with_Mosaic)
 
 
 #---------------------------------------------------#
@@ -275,6 +274,7 @@ if __name__ == "__main__":
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir+"/ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5", save_weights_only=True, save_best_only=False, period=1)
     early_stopping = EarlyStopping(min_delta=0, patience=10, verbose=1)
+    loss_history = LossHistory(log_dir)
 
     #----------------------------------------------------------------------#
     #   验证集的划分在train.py代码里面进行
@@ -329,14 +329,20 @@ if __name__ == "__main__":
             reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1)
             model.compile(optimizer=Adam(learning_rate_base), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
 
+        epoch_size = num_train // batch_size
+        epoch_size_val = num_val // batch_size
+
+        if epoch_size == 0 or epoch_size_val == 0:
+            raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit(data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic, random=True),
-                steps_per_epoch=max(1, num_train//batch_size),
+                steps_per_epoch=epoch_size,
                 validation_data=data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False, random=False),
-                validation_steps=max(1, num_val//batch_size),
+                validation_steps=epoch_size_val,
                 epochs=Freeze_epoch,
                 initial_epoch=Init_epoch,
-                callbacks=[logging, checkpoint, reduce_lr, early_stopping])
+                callbacks=[logging, checkpoint, reduce_lr, early_stopping, loss_history])
         model.save_weights(log_dir + 'trained_weights_stage_1.h5')
 
     for i in range(freeze_layers): model_body.layers[i].trainable = True
@@ -368,12 +374,18 @@ if __name__ == "__main__":
             reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1)
             model.compile(optimizer=Adam(learning_rate_base), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
 
+        epoch_size = num_train // batch_size
+        epoch_size_val = num_val // batch_size
+
+        if epoch_size == 0 or epoch_size_val == 0:
+            raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
+
         print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
         model.fit(data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic, random=True),
-                steps_per_epoch=max(1, num_train//batch_size),
+                steps_per_epoch=epoch_size,
                 validation_data=data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False, random=False),
-                validation_steps=max(1, num_val//batch_size),
+                validation_steps=epoch_size_val,
                 epochs=Epoch,
                 initial_epoch=Freeze_epoch,
-                callbacks=[logging, checkpoint, reduce_lr, early_stopping])
+                callbacks=[logging, checkpoint, reduce_lr, early_stopping, loss_history])
         model.save_weights(log_dir + 'last1.h5')
