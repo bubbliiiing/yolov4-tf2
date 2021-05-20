@@ -203,7 +203,7 @@ def fit_one_epoch(net, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val, 
             targets = [target0, target1, target2]
             targets = [tf.convert_to_tensor(target) for target in targets]
             loss_value = train_step(images, yolo_loss, targets, net, optimizer, regularization, normalize)
-            loss = loss + loss_value.numpy()
+            loss = loss + loss_value
 
             pbar.set_postfix(**{'total_loss': float(loss) / (iteration + 1), 
                                 'lr'        : optimizer._decayed_lr(tf.float32).numpy()})
@@ -226,12 +226,12 @@ def fit_one_epoch(net, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val, 
                 # 加入正则化损失
                 loss_value = tf.reduce_sum(net.losses) + loss_value
             # 更新验证集loss
-            val_loss = val_loss + loss_value.numpy()
+            val_loss = val_loss + loss_value
 
             pbar.set_postfix(**{'total_loss': float(val_loss)/ (iteration + 1)})
             pbar.update(1)
 
-    logs = {'loss': loss/(epoch_size+1), 'val_loss': val_loss/(epoch_size_val+1)}
+    logs = {'loss': loss.numpy()/(epoch_size+1), 'val_loss': val_loss.numpy()/(epoch_size_val+1)}
     loss_history.on_epoch_end([], logs)
     print('Finish Validation')
     print('Epoch:'+ str(epoch+1) + '/' + str(Epoch))
@@ -352,29 +352,29 @@ if __name__ == "__main__":
     
     # 调整非主干模型first
     if True:
-        Init_epoch = 0
-        Freeze_epoch = 50
-        batch_size = 2
-        learning_rate_base = 1e-3
+        Init_epoch          = 0
+        Freeze_epoch        = 50
+        batch_size          = 2
+        learning_rate_base  = 1e-3
 
         if Use_Data_Loader:
-            gen = partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size, input_shape = input_shape, 
+            gen         = partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size, input_shape = input_shape, 
                             anchors = anchors, num_classes = num_classes, mosaic=mosaic, random=True)
-            gen = tf.data.Dataset.from_generator(gen, (tf.float32, tf.float32, tf.float32, tf.float32))
+            gen         = tf.data.Dataset.from_generator(gen, (tf.float32, tf.float32, tf.float32, tf.float32))
                 
-            gen_val = partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
+            gen_val     = partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
                             input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False, random=False)
-            gen_val = tf.data.Dataset.from_generator(gen_val, (tf.float32, tf.float32, tf.float32, tf.float32))
+            gen_val     = tf.data.Dataset.from_generator(gen_val, (tf.float32, tf.float32, tf.float32, tf.float32))
 
-            gen = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
-            gen_val = gen_val.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+            gen         = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+            gen_val     = gen_val.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
 
         else:
-            gen = data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic)
-            gen_val = data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False)
+            gen         = data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic)
+            gen_val     = data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False)
             
-        epoch_size = num_train//batch_size
-        epoch_size_val = num_val//batch_size
+        epoch_size      = num_train//batch_size
+        epoch_size_val  = num_val//batch_size
 
         if epoch_size == 0 or epoch_size_val == 0:
             raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
@@ -404,28 +404,28 @@ if __name__ == "__main__":
 
     # 解冻后训练
     if True:
-        Freeze_epoch = 50
-        Epoch = 100
-        batch_size = 2
-        learning_rate_base = 1e-4
+        Freeze_epoch        = 50
+        Epoch               = 100
+        batch_size          = 2
+        learning_rate_base  = 1e-4
 
         if Use_Data_Loader:
-            gen = partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size, input_shape = input_shape, 
+            gen         = partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size, input_shape = input_shape, 
                             anchors = anchors, num_classes = num_classes, mosaic=mosaic, random=True)
-            gen = tf.data.Dataset.from_generator(gen, (tf.float32, tf.float32, tf.float32, tf.float32))
+            gen         = tf.data.Dataset.from_generator(gen, (tf.float32, tf.float32, tf.float32, tf.float32))
                 
-            gen_val = partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
+            gen_val     = partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
                             input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False, random=False)
-            gen_val = tf.data.Dataset.from_generator(gen_val, (tf.float32, tf.float32, tf.float32, tf.float32))
+            gen_val     = tf.data.Dataset.from_generator(gen_val, (tf.float32, tf.float32, tf.float32, tf.float32))
 
-            gen = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
-            gen_val = gen_val.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+            gen         = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+            gen_val     = gen_val.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
         else:
-            gen = data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic, random=True),
-            gen_val = data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False, random=False)
+            gen         = data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic, random=True),
+            gen_val     = data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False, random=False)
             
-        epoch_size = num_train//batch_size
-        epoch_size_val = num_val//batch_size
+        epoch_size      = num_train//batch_size
+        epoch_size_val  = num_val//batch_size
 
         if epoch_size == 0 or epoch_size_val == 0:
             raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
