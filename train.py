@@ -259,7 +259,7 @@ if __name__ == "__main__":
     #----------------------------------------------------#
     #   是否使用eager模式训练
     #----------------------------------------------------#
-    eager = True
+    eager = False
     #----------------------------------------------------#
     #   获得图片路径和标签
     #----------------------------------------------------#
@@ -387,65 +387,65 @@ if __name__ == "__main__":
     #   Epoch总训练世代
     #   提示OOM或者显存不足请调小Batch_size
     #------------------------------------------------------#
-    # if True:
-    #     Init_epoch          = 0
-    #     Freeze_epoch        = 50
-    #     batch_size          = 2
-    #     learning_rate_base  = 1e-3
+    if True:
+        Init_epoch          = 0
+        Freeze_epoch        = 50
+        batch_size          = 2
+        learning_rate_base  = 1e-3
         
-    #     epoch_size      = num_train // batch_size
-    #     epoch_size_val  = num_val // batch_size
+        epoch_size      = num_train // batch_size
+        epoch_size_val  = num_val // batch_size
 
-    #     if epoch_size == 0 or epoch_size_val == 0:
-    #         raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
+        if epoch_size == 0 or epoch_size_val == 0:
+            raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
 
-    #     if eager:
-    #         gen     = tf.data.Dataset.from_generator(partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size,
-    #             input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=mosaic, random=True), (tf.float32, tf.float32, tf.float32, tf.float32))
-    #         gen_val = tf.data.Dataset.from_generator(partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
-    #             input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False, random=False), (tf.float32, tf.float32, tf.float32, tf.float32))
+        if eager:
+            gen     = tf.data.Dataset.from_generator(partial(data_generator, annotation_lines = lines[:num_train], batch_size = batch_size,
+                input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=mosaic, random=True), (tf.float32, tf.float32, tf.float32, tf.float32))
+            gen_val = tf.data.Dataset.from_generator(partial(data_generator, annotation_lines = lines[num_train:], batch_size = batch_size, 
+                input_shape = input_shape, anchors = anchors, num_classes = num_classes, mosaic=False, random=False), (tf.float32, tf.float32, tf.float32, tf.float32))
 
-    #         gen     = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
-    #         gen_val = gen_val.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+            gen     = gen.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
+            gen_val = gen_val.shuffle(buffer_size=batch_size).prefetch(buffer_size=batch_size)
 
-    #         if Cosine_scheduler:
-    #             lr_schedule = tf.keras.experimental.CosineDecayRestarts(
-    #                 initial_learning_rate = learning_rate_base, first_decay_steps = 5 * epoch_size, t_mul = 1.0, alpha = 1e-2)
-    #         else:
-    #             lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-    #                 initial_learning_rate=learning_rate_base, decay_steps=epoch_size, decay_rate=0.92, staircase=True)
+            if Cosine_scheduler:
+                lr_schedule = tf.keras.experimental.CosineDecayRestarts(
+                    initial_learning_rate = learning_rate_base, first_decay_steps = 5 * epoch_size, t_mul = 1.0, alpha = 1e-2)
+            else:
+                lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+                    initial_learning_rate=learning_rate_base, decay_steps=epoch_size, decay_rate=0.92, staircase=True)
             
-    #         optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
-    #     else:
-    #         if Cosine_scheduler:
-    #             # 预热期
-    #             warmup_epoch    = int((Freeze_epoch-Init_epoch)*0.2)
-    #             # 总共的步长
-    #             total_steps     = int((Freeze_epoch-Init_epoch) * num_train / batch_size)
-    #             # 预热步长
-    #             warmup_steps    = int(warmup_epoch * num_train / batch_size)
-    #             # 学习率
-    #             reduce_lr       = WarmUpCosineDecayScheduler(learning_rate_base=learning_rate_base, total_steps=total_steps,
-    #                                                         warmup_learning_rate=1e-4, warmup_steps=warmup_steps,
-    #                                                         hold_base_rate_steps=num_train, min_learn_rate=1e-6)
-    #             model.compile(optimizer=Adam(), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
-    #         else:
-    #             reduce_lr       = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1)
-    #             model.compile(optimizer=Adam(learning_rate_base), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
+            optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+        else:
+            if Cosine_scheduler:
+                # 预热期
+                warmup_epoch    = int((Freeze_epoch-Init_epoch)*0.2)
+                # 总共的步长
+                total_steps     = int((Freeze_epoch-Init_epoch) * num_train / batch_size)
+                # 预热步长
+                warmup_steps    = int(warmup_epoch * num_train / batch_size)
+                # 学习率
+                reduce_lr       = WarmUpCosineDecayScheduler(learning_rate_base=learning_rate_base, total_steps=total_steps,
+                                                            warmup_learning_rate=1e-4, warmup_steps=warmup_steps,
+                                                            hold_base_rate_steps=num_train, min_learn_rate=1e-6)
+                model.compile(optimizer=Adam(), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
+            else:
+                reduce_lr       = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, verbose=1)
+                model.compile(optimizer=Adam(learning_rate_base), loss={'yolo_loss': lambda y_true, y_pred: y_pred})
 
-    #     print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
-    #     if eager:
-    #         for epoch in range(Init_epoch,Freeze_epoch):
-    #             fit_one_epoch(model_body, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val,gen, gen_val, 
-    #                         Freeze_epoch, anchors, num_classes, label_smoothing, regularization, get_train_step_fn())
-    #     else:
-    #         model.fit(data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic, random=True, eager=False),
-    #                 steps_per_epoch=epoch_size,
-    #                 validation_data=data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False, random=False, eager=False),
-    #                 validation_steps=epoch_size_val,
-    #                 epochs=Freeze_epoch,
-    #                 initial_epoch=Init_epoch,
-    #                 callbacks=[logging, checkpoint, reduce_lr, early_stopping, loss_history])
+        print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
+        if eager:
+            for epoch in range(Init_epoch,Freeze_epoch):
+                fit_one_epoch(model_body, yolo_loss, optimizer, epoch, epoch_size, epoch_size_val,gen, gen_val, 
+                            Freeze_epoch, anchors, num_classes, label_smoothing, regularization, get_train_step_fn())
+        else:
+            model.fit(data_generator(lines[:num_train], batch_size, input_shape, anchors, num_classes, mosaic=mosaic, random=True, eager=False),
+                    steps_per_epoch=epoch_size,
+                    validation_data=data_generator(lines[num_train:], batch_size, input_shape, anchors, num_classes, mosaic=False, random=False, eager=False),
+                    validation_steps=epoch_size_val,
+                    epochs=Freeze_epoch,
+                    initial_epoch=Init_epoch,
+                    callbacks=[logging, checkpoint, reduce_lr, early_stopping, loss_history])
 
     for i in range(freeze_layers): model_body.layers[i].trainable = True
 
