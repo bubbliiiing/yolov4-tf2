@@ -140,8 +140,7 @@ class YOLO(object):
         if self.letterbox_image:
             boxed_image = letterbox_image(image, (self.model_image_size[1],self.model_image_size[0]))
         else:
-            boxed_image = image.convert('RGB')
-            boxed_image = boxed_image.resize((self.model_image_size[1],self.model_image_size[0]), Image.BICUBIC)
+            boxed_image = image.resize((self.model_image_size[1],self.model_image_size[0]), Image.BICUBIC)
         image_data = np.array(boxed_image, dtype='float32')
         image_data /= 255.
         #---------------------------------------------------------#
