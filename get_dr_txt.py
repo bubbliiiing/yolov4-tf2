@@ -80,7 +80,7 @@ class mAP_YOLO(YOLO):
         self.input_image_shape = Input([2,],batch_size=1)
         inputs = [*self.yolo_model.output, self.input_image_shape]
         outputs = Lambda(yolo_eval, output_shape=(1,), name='yolo_eval',
-            arguments={'anchors': self.anchors, 'num_classes': len(self.class_names), 'image_shape': self.model_image_size, 
+            arguments={'anchors': self.anchors, 'num_classes': len(self.class_names), 'image_shape': self.model_image_size, 'iou_threshold': self.iou,
             'score_threshold': self.score, 'eager': True, 'max_boxes': self.max_boxes, 'letterbox_image': self.letterbox_image})(inputs)
         self.yolo_model = Model([self.yolo_model.input, self.input_image_shape], outputs)
 
