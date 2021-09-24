@@ -3,8 +3,7 @@ from functools import wraps
 from tensorflow.keras import backend as K
 from tensorflow.keras.initializers import RandomNormal
 from tensorflow.keras.layers import (Add, BatchNormalization, Concatenate,
-                                     Conv2D, Layer, LeakyReLU, MaxPooling2D,
-                                     UpSampling2D, ZeroPadding2D)
+                                     Conv2D, Layer, ZeroPadding2D)
 from tensorflow.keras.regularizers import l2
 from utils.utils import compose
 
@@ -24,19 +23,17 @@ class Mish(Layer):
     def compute_output_shape(self, input_shape):
         return input_shape
 
-#--------------------------------------------------#
+#------------------------------------------------------#
 #   单次卷积DarknetConv2D
 #   如果步长为2则自己设定padding方式。
-#   测试中发现没有l2正则化效果更好，所以去掉了l2正则化
-#--------------------------------------------------#
+#------------------------------------------------------#
 @wraps(Conv2D)
 def DarknetConv2D(*args, **kwargs):
-    # darknet_conv_kwargs = {'kernel_regularizer': l2(5e-4)}
-    darknet_conv_kwargs = {'kernel_initializer' : RandomNormal(stddev=0.02)}
+    darknet_conv_kwargs = {'kernel_initializer' : RandomNormal(stddev=0.02), 'kernel_regularizer': l2(5e-4)}
     darknet_conv_kwargs['padding'] = 'valid' if kwargs.get('strides')==(2,2) else 'same'
     darknet_conv_kwargs.update(kwargs)
     return Conv2D(*args, **darknet_conv_kwargs)
-  
+
 #---------------------------------------------------#
 #   卷积块 -> 卷积 + 标准化 + 激活函数
 #   DarknetConv2D + BatchNormalization + Mish
