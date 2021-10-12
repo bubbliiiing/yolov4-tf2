@@ -130,7 +130,7 @@ if __name__ == "__main__":
     if Cosine_scheduler:
         reduce_lr   = WarmUpCosineDecayScheduler(T_max = 5, eta_min = 1e-5)
     else:
-        reduce_lr   = ExponentDecayScheduler(decay_rate = 0.92, verbose = 1)
+        reduce_lr   = ExponentDecayScheduler(decay_rate = 0.94, verbose = 1)
     early_stopping  = EarlyStopping(monitor='val_loss', min_delta = 0, patience = 10, verbose = 1)
     loss_history    = LossHistory('logs/')
 
@@ -185,7 +185,7 @@ if __name__ == "__main__":
                     initial_learning_rate = lr, first_decay_steps = 5 * epoch_step, t_mul = 1.0, alpha = 1e-2)
             else:
                 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-                    initial_learning_rate = lr, decay_steps = epoch_step, decay_rate=0.92, staircase=True)
+                    initial_learning_rate = lr, decay_steps = epoch_step, decay_rate=0.94, staircase=True)
             
             optimizer = tf.keras.optimizers.Adam(learning_rate = lr_schedule)
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
                     initial_learning_rate = lr, first_decay_steps = 5 * epoch_step, t_mul = 1.0, alpha = 1e-2)
             else:
                 lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-                    initial_learning_rate = lr, decay_steps = epoch_step, decay_rate=0.92, staircase=True)
+                    initial_learning_rate = lr, decay_steps = epoch_step, decay_rate=0.94, staircase=True)
             
             optimizer = tf.keras.optimizers.Adam(learning_rate = lr_schedule)
 
