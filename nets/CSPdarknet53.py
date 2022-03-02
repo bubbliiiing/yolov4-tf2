@@ -29,8 +29,12 @@ class Mish(Layer):
 #------------------------------------------------------#
 @wraps(Conv2D)
 def DarknetConv2D(*args, **kwargs):
-    darknet_conv_kwargs = {'kernel_initializer' : RandomNormal(stddev=0.02), 'kernel_regularizer': l2(5e-4)}
-    darknet_conv_kwargs['padding'] = 'valid' if kwargs.get('strides')==(2,2) else 'same'
+    darknet_conv_kwargs = {'kernel_initializer' : RandomNormal(stddev=0.02), 'kernel_regularizer' : l2(kwargs.get('weight_decay', 5e-4))}
+    darknet_conv_kwargs['padding'] = 'valid' if kwargs.get('strides')==(2, 2) else 'same'   
+    try:
+        del kwargs['weight_decay']
+    except:
+        pass
     darknet_conv_kwargs.update(kwargs)
     return Conv2D(*args, **darknet_conv_kwargs)
 
@@ -53,28 +57,28 @@ def DarknetConv2D_BN_Mish(*args, **kwargs):
 #   主干部分会对num_blocks进行循环，循环内部是残差结构。
 #   对于整个CSPdarknet的结构块，就是一个大残差块+内部多个小残差块
 #--------------------------------------------------------------------#
-def resblock_body(x, num_filters, num_blocks, all_narrow=True):
+def resblock_body(x, num_filters, num_blocks, all_narrow=True, weight_decay=5e-4):
     #----------------------------------------------------------------#
     #   利用ZeroPadding2D和一个步长为2x2的卷积块进行高和宽的压缩
     #----------------------------------------------------------------#
     preconv1 = ZeroPadding2D(((1,0),(1,0)))(x)
-    preconv1 = DarknetConv2D_BN_Mish(num_filters, (3,3), strides=(2,2))(preconv1)
+    preconv1 = DarknetConv2D_BN_Mish(num_filters, (3,3), strides=(2,2), weight_decay=weight_decay)(preconv1)
 
     #--------------------------------------------------------------------#
     #   然后建立一个大的残差边shortconv、这个大残差边绕过了很多的残差结构
     #--------------------------------------------------------------------#
-    shortconv = DarknetConv2D_BN_Mish(num_filters//2 if all_narrow else num_filters, (1,1))(preconv1)
+    shortconv = DarknetConv2D_BN_Mish(num_filters//2 if all_narrow else num_filters, (1,1), weight_decay=weight_decay)(preconv1)
 
     #----------------------------------------------------------------#
     #   主干部分会对num_blocks进行循环，循环内部是残差结构。
     #----------------------------------------------------------------#
-    mainconv = DarknetConv2D_BN_Mish(num_filters//2 if all_narrow else num_filters, (1,1))(preconv1)
+    mainconv = DarknetConv2D_BN_Mish(num_filters//2 if all_narrow else num_filters, (1,1), weight_decay=weight_decay)(preconv1)
     for i in range(num_blocks):
         y = compose(
-                DarknetConv2D_BN_Mish(num_filters//2, (1,1)),
-                DarknetConv2D_BN_Mish(num_filters//2 if all_narrow else num_filters, (3,3)))(mainconv)
+                DarknetConv2D_BN_Mish(num_filters//2, (1,1), weight_decay=weight_decay),
+                DarknetConv2D_BN_Mish(num_filters//2 if all_narrow else num_filters, (3,3), weight_decay=weight_decay))(mainconv)
         mainconv = Add()([mainconv,y])
-    postconv = DarknetConv2D_BN_Mish(num_filters//2 if all_narrow else num_filters, (1,1))(mainconv)
+    postconv = DarknetConv2D_BN_Mish(num_filters//2 if all_narrow else num_filters, (1,1), weight_decay=weight_decay)(mainconv)
 
     #----------------------------------------------------------------#
     #   将大残差边再堆叠回来
@@ -89,15 +93,15 @@ def resblock_body(x, num_filters, num_blocks, all_narrow=True):
 #   输入为一张416x416x3的图片
 #   输出为三个有效特征层
 #---------------------------------------------------#
-def darknet_body(x):
-    x = DarknetConv2D_BN_Mish(32, (3,3))(x)
-    x = resblock_body(x, 64, 1, False)
-    x = resblock_body(x, 128, 2)
-    x = resblock_body(x, 256, 8)
+def darknet_body(x, weight_decay=5e-4):
+    x = DarknetConv2D_BN_Mish(32, (3,3), weight_decay=weight_decay)(x)
+    x = resblock_body(x, 64, 1, False, weight_decay=weight_decay)
+    x = resblock_body(x, 128, 2, weight_decay=weight_decay)
+    x = resblock_body(x, 256, 8, weight_decay=weight_decay)
     feat1 = x
-    x = resblock_body(x, 512, 8)
+    x = resblock_body(x, 512, 8, weight_decay=weight_decay)
     feat2 = x
-    x = resblock_body(x, 1024, 4)
+    x = resblock_body(x, 1024, 4, weight_decay=weight_decay)
     feat3 = x
     return feat1,feat2,feat3
 
