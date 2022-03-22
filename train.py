@@ -178,6 +178,10 @@ if __name__ == "__main__":
     #------------------------------------------------------------------#
     save_period         = 1
     #------------------------------------------------------------------#
+    #   save_dir        权值与日志文件保存的文件夹
+    #------------------------------------------------------------------#
+    save_dir            = 'logs'
+    #------------------------------------------------------------------#
     #   num_workers     用于设置是否使用多线程读取数据，1代表关闭多线程
     #                   开启后会加快数据读取速度，但是会占用更多内存
     #                   keras里开启多线程有些时候速度反而慢了许多
@@ -279,7 +283,7 @@ if __name__ == "__main__":
             gen_val = gen_val.shuffle(buffer_size = batch_size).prefetch(buffer_size = batch_size)
 
             time_str        = datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S')
-            log_dir         = os.path.join('logs', "loss_" + str(time_str))
+            log_dir         = os.path.join(save_dir, "loss_" + str(time_str))
             loss_history    = LossHistory(log_dir)
             #---------------------------------------#
             #   开始模型训练
@@ -325,10 +329,9 @@ if __name__ == "__main__":
 
                 lr = lr_scheduler_func(epoch)
                 K.set_value(optimizer.lr, lr)
-                K.set_value(optimizer.lr, lr)
 
                 fit_one_epoch(model_body, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, 
-                            end_epoch, input_shape, anchors, anchors_mask, num_classes, label_smoothing, save_period)
+                            end_epoch, input_shape, anchors, anchors_mask, num_classes, label_smoothing, save_period, save_dir)
 
                 train_dataloader.on_epoch_end()
                 val_dataloader.on_epoch_end()
@@ -345,14 +348,14 @@ if __name__ == "__main__":
             #   early_stopping  用于设定早停，val_loss多次不下降自动结束训练，表示模型基本收敛
             #-------------------------------------------------------------------------------#
             time_str        = datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S')
-            log_dir         = os.path.join('logs', "loss_" + str(time_str))
+            log_dir         = os.path.join(save_dir, "loss_" + str(time_str))
             logging         = TensorBoard(log_dir)
             loss_history    = LossHistory(log_dir)
-            checkpoint      = ModelCheckpoint('logs/ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
+            checkpoint      = ModelCheckpoint(os.path.join(save_dir, "ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5"), 
                                     monitor = 'val_loss', save_weights_only = True, save_best_only = False, period = save_period)
             early_stopping  = EarlyStopping(monitor='val_loss', min_delta = 0, patience = 10, verbose = 1)
             lr_scheduler    = LearningRateScheduler(lr_scheduler_func, verbose = 1)
-            callbacks       = [logging, loss_history, checkpoint, lr_scheduler, early_stopping]
+            callbacks       = [logging, loss_history, checkpoint, lr_scheduler]
 
             if start_epoch < end_epoch:
                 print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
@@ -387,7 +390,7 @@ if __name__ == "__main__":
                 #---------------------------------------#
                 lr_scheduler_func = get_lr_scheduler(lr_decay_type, Init_lr_fit, Min_lr_fit, UnFreeze_Epoch)
                 lr_scheduler    = LearningRateScheduler(lr_scheduler_func, verbose = 1)
-                callbacks       = [logging, loss_history, checkpoint, lr_scheduler, early_stopping]
+                callbacks       = [logging, loss_history, checkpoint, lr_scheduler]
 
                 for i in range(len(model_body.layers)): 
                     model_body.layers[i].trainable = True
