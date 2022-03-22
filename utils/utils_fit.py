@@ -83,5 +83,5 @@ def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_va
     loss_history.on_epoch_end([], logs)
     print('Epoch:'+ str(epoch+1) + '/' + str(Epoch))
     print('Total Loss: %.3f || Val Loss: %.3f ' % (loss / epoch_step, val_loss / epoch_step_val))
-    if (epoch + 1) % save_period == 0:
+    if (epoch + 1) % save_period == 0 or epoch + 1 == Epoch:
         net.save_weights(os.path.join(save_dir, "ep%03d-loss%.3f-val_loss%.3f.pth" % (epoch + 1, loss / epoch_step, val_loss / epoch_step_val)))
