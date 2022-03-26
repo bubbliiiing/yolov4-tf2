@@ -165,6 +165,7 @@ if __name__ == "__main__":
     #                   当使用SGD优化器时建议设置   Init_lr=1e-2
     #   momentum        优化器内部使用到的momentum参数
     #   weight_decay    权值衰减，可防止过拟合
+    #                   adam会导致weight_decay错误，使用adam时建议设置为0。
     #------------------------------------------------------------------#
     optimizer_type      = "sgd"
     momentum            = 0.937
@@ -249,8 +250,8 @@ if __name__ == "__main__":
         #   判断当前batch_size与64的差别，自适应调整学习率
         #-------------------------------------------------------------------#
         nbs     = 64
-        Init_lr_fit = max(batch_size / nbs * Init_lr, 1e-4)
-        Min_lr_fit  = max(batch_size / nbs * Min_lr, 1e-6)
+        Init_lr_fit = max(batch_size / nbs * Init_lr, 3e-4)
+        Min_lr_fit  = max(batch_size / nbs * Min_lr, 3e-6)
 
         #---------------------------------------#
         #   获得学习率下降的公式
@@ -300,8 +301,8 @@ if __name__ == "__main__":
                     #   判断当前batch_size与64的差别，自适应调整学习率
                     #-------------------------------------------------------------------#
                     nbs     = 64
-                    Init_lr_fit = max(batch_size / nbs * Init_lr, 1e-4)
-                    Min_lr_fit  = max(batch_size / nbs * Min_lr, 1e-6)
+                    Init_lr_fit = max(batch_size / nbs * Init_lr, 3e-4)
+                    Min_lr_fit  = max(batch_size / nbs * Min_lr, 3e-6)
                     #---------------------------------------#
                     #   获得学习率下降的公式
                     #---------------------------------------#
@@ -383,8 +384,8 @@ if __name__ == "__main__":
                 #   判断当前batch_size与64的差别，自适应调整学习率
                 #-------------------------------------------------------------------#
                 nbs     = 64
-                Init_lr_fit = max(batch_size / nbs * Init_lr, 1e-4)
-                Min_lr_fit  = max(batch_size / nbs * Min_lr, 1e-6)
+                Init_lr_fit = max(batch_size / nbs * Init_lr, 3e-4)
+                Min_lr_fit  = max(batch_size / nbs * Min_lr, 3e-6)
                 #---------------------------------------#
                 #   获得学习率下降的公式
                 #---------------------------------------#
