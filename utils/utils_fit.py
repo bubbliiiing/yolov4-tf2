@@ -8,7 +8,7 @@ from tqdm import tqdm
 #------------------------------#
 #   防止bug
 #------------------------------#
-def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing):
+def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma):
     @tf.function
     def train_step(imgs, targets, net, optimizer):
         with tf.GradientTape() as tape:
@@ -23,7 +23,11 @@ def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smo
                 balance         = [0.4, 1.0, 4],
                 box_ratio       = 0.05, 
                 obj_ratio       = 5 * (input_shape[0] * input_shape[1]) / (416 ** 2),
-                cls_ratio       = 1 * (num_classes / 80)
+                cls_ratio       = 1 * (num_classes / 80),
+                focal_loss      = focal_loss, 
+                focal_loss_ratio= 10,
+                alpha           = alpha, 
+                gamma           = gamma
             )
             #------------------------------#
             #   添加上l2正则化参数
@@ -35,8 +39,8 @@ def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smo
     return train_step
 
 def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, 
-            input_shape, anchors, anchors_mask, num_classes, label_smoothing, save_period, save_dir):
-    train_step  = get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing)
+            input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, save_period, save_dir):
+    train_step  = get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma)
     loss        = 0
     val_loss    = 0
     print('Start Train')
@@ -68,7 +72,17 @@ def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_va
             #------------------------------#
             P5_output, P4_output, P3_output = net(images)
             args        = [P5_output, P4_output, P3_output] + targets
-            loss_value  = yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, label_smoothing=label_smoothing)
+            loss_value  = yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, 
+                label_smoothing = label_smoothing,
+                balance         = [0.4, 1.0, 4],
+                box_ratio       = 0.05, 
+                obj_ratio       = 5 * (input_shape[0] * input_shape[1]) / (416 ** 2),
+                cls_ratio       = 1 * (num_classes / 80),
+                focal_loss      = focal_loss, 
+                focal_loss_ratio= 10,
+                alpha           = alpha, 
+                gamma           = gamma
+            )
             #------------------------------#
             #   添加上l2正则化参数
             #------------------------------#
