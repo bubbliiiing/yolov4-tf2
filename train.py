@@ -46,6 +46,12 @@ if __name__ == "__main__":
     #----------------------------------------------------#
     eager           = False
     #---------------------------------------------------------------------#
+    #   train_gpu   训练用到的GPU
+    #               默认为第一张卡、双卡为[0, 1]、三卡为[0, 1, 2]
+    #               在使用多GPU时，每个卡上的batch为总batch除以卡的数量。
+    #---------------------------------------------------------------------#
+    train_gpu       = [0,]
+    #---------------------------------------------------------------------#
     #   classes_path    指向model_data下的txt，与自己训练的数据集相关 
     #                   训练前一定要修改classes_path，使其对应自己的数据集
     #---------------------------------------------------------------------#
@@ -213,26 +219,54 @@ if __name__ == "__main__":
     train_annotation_path   = '2007_train.txt'
     val_annotation_path     = '2007_val.txt'
 
+    #------------------------------------------------------#
+    #   设置用到的显卡
+    #------------------------------------------------------#
+    os.environ["CUDA_VISIBLE_DEVICES"]  = ','.join(str(x) for x in train_gpu)
+    ngpus_per_node                      = len(train_gpu)
+    
+    gpus = tf.config.experimental.list_physical_devices(device_type='GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+        
+    strategy = tf.distribute.MirroredStrategy()
+    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+
     #----------------------------------------------------#
     #   获取classes和anchor
     #----------------------------------------------------#
     class_names, num_classes = get_classes(classes_path)
     anchors, num_anchors     = get_anchors(anchors_path)
 
-    #------------------------------------------------------#
-    #   创建yolo模型
-    #------------------------------------------------------#
-    model_body  = yolo_body((None, None, 3), anchors_mask, num_classes, weight_decay)
-    if model_path != '':
+    if ngpus_per_node > 1:
+        with strategy.scope():
+            #------------------------------------------------------#
+            #   创建yolo模型
+            #------------------------------------------------------#
+            model_body  = yolo_body((None, None, 3), anchors_mask, num_classes, weight_decay)
+            if model_path != '':
+                #------------------------------------------------------#
+                #   载入预训练权重
+                #------------------------------------------------------#
+                print('Load weights {}.'.format(model_path))
+                model_body.load_weights(model_path, by_name=True, skip_mismatch=True)
+                
+            if not eager:
+                model = get_train_model(model_body, input_shape, num_classes, anchors, anchors_mask, label_smoothing, focal_loss, focal_alpha, focal_gamma)
+    else:
         #------------------------------------------------------#
-        #   载入预训练权重
+        #   创建yolo模型
         #------------------------------------------------------#
-        print('Load weights {}.'.format(model_path))
-        model_body.load_weights(model_path, by_name=True, skip_mismatch=True)
-        
-    if not eager:
-        model = get_train_model(model_body, input_shape, num_classes, anchors, anchors_mask, label_smoothing, focal_loss, focal_alpha, focal_gamma)
-
+        model_body  = yolo_body((None, None, 3), anchors_mask, num_classes, weight_decay)
+        if model_path != '':
+            #------------------------------------------------------#
+            #   载入预训练权重
+            #------------------------------------------------------#
+            print('Load weights {}.'.format(model_path))
+            model_body.load_weights(model_path, by_name=True, skip_mismatch=True)
+            
+        if not eager:
+            model = get_train_model(model_body, input_shape, num_classes, anchors, anchors_mask, label_smoothing, focal_loss, focal_alpha, focal_gamma)
     #---------------------------#
     #   读取数据集对应的txt
     #---------------------------#
@@ -360,7 +394,11 @@ if __name__ == "__main__":
             start_epoch = Init_Epoch
             end_epoch   = Freeze_Epoch if Freeze_Train else UnFreeze_Epoch
 
-            model.compile(optimizer = optimizer, loss={'yolo_loss': lambda y_true, y_pred: y_pred})
+            if ngpus_per_node > 1:
+                with strategy.scope():
+                    model.compile(optimizer = optimizer, loss={'yolo_loss': lambda y_true, y_pred: y_pred})
+            else:
+                model.compile(optimizer = optimizer, loss={'yolo_loss': lambda y_true, y_pred: y_pred})
             #-------------------------------------------------------------------------------#
             #   训练参数的设置
             #   logging         用于设置tensorboard的保存地址
@@ -417,7 +455,11 @@ if __name__ == "__main__":
 
                 for i in range(len(model_body.layers)): 
                     model_body.layers[i].trainable = True
-                model.compile(optimizer = optimizer, loss={'yolo_loss': lambda y_true, y_pred: y_pred})
+                if ngpus_per_node > 1:
+                    with strategy.scope():
+                        model.compile(optimizer = optimizer, loss={'yolo_loss': lambda y_true, y_pred: y_pred})
+                else:
+                    model.compile(optimizer = optimizer, loss={'yolo_loss': lambda y_true, y_pred: y_pred})
 
                 epoch_step      = num_train // batch_size
                 epoch_step_val  = num_val // batch_size
