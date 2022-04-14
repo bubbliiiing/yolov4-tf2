@@ -8,7 +8,7 @@ from tqdm import tqdm
 #------------------------------#
 #   防止bug
 #------------------------------#
-def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma):
+def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy):
     @tf.function
     def train_step(imgs, targets, net, optimizer):
         with tf.GradientTape() as tape:
@@ -36,11 +36,23 @@ def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smo
         grads = tape.gradient(loss_value, net.trainable_variables)
         optimizer.apply_gradients(zip(grads, net.trainable_variables))
         return loss_value
-    return train_step
+    
+    if strategy == None:
+        return train_step
+    else:
+        #----------------------#
+        #   多gpu训练
+        #----------------------#
+        @tf.function
+        def distributed_train_step(images, targets, net, optimizer):
+            per_replica_losses = strategy.run(train_step, args=(images, targets, net, optimizer,))
+            return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
+                                    axis=None)
+        return distributed_train_step
 
 def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, 
-            input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, save_period, save_dir):
-    train_step  = get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma)
+            input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, save_period, save_dir, strategy):
+    train_step  = get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy)
     loss        = 0
     val_loss    = 0
     print('Start Train')
