@@ -334,6 +334,10 @@ if __name__ == "__main__":
 
             gen     = gen.shuffle(buffer_size = batch_size).prefetch(buffer_size = batch_size)
             gen_val = gen_val.shuffle(buffer_size = batch_size).prefetch(buffer_size = batch_size)
+            
+            if ngpus_per_node > 1:
+                gen     = strategy.experimental_distribute_dataset(gen)
+                gen_val = strategy.experimental_distribute_dataset(gen_val)
 
             time_str        = datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S')
             log_dir         = os.path.join(save_dir, "loss_" + str(time_str))
@@ -379,6 +383,10 @@ if __name__ == "__main__":
 
                     gen     = gen.shuffle(buffer_size = batch_size).prefetch(buffer_size = batch_size)
                     gen_val = gen_val.shuffle(buffer_size = batch_size).prefetch(buffer_size = batch_size)
+            
+                    if ngpus_per_node > 1:
+                        gen     = strategy.experimental_distribute_dataset(gen)
+                        gen_val = strategy.experimental_distribute_dataset(gen_val)
                     
                     UnFreeze_flag = True
 

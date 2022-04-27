@@ -49,10 +49,53 @@ def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smo
             return strategy.reduce(tf.distribute.ReduceOp.MEAN, per_replica_losses,
                                     axis=None)
         return distributed_train_step
+    
+#----------------------#
+#   防止bug
+#----------------------#
+def get_val_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy):
+    @tf.function
+    def val_step(imgs, targets, net, optimizer):
+        #------------------------------#
+        #   计算loss
+        #------------------------------#
+        P5_output, P4_output, P3_output = net(imgs, training=False)
+        args        = [P5_output, P4_output, P3_output] + targets
+        loss_value  = yolo_loss(
+            args, input_shape, anchors, anchors_mask, num_classes, 
+            label_smoothing = label_smoothing,
+            balance         = [0.4, 1.0, 4],
+            box_ratio       = 0.05, 
+            obj_ratio       = 5 * (input_shape[0] * input_shape[1]) / (416 ** 2),
+            cls_ratio       = 1 * (num_classes / 80),
+            focal_loss      = focal_loss, 
+            focal_loss_ratio= 10,
+            alpha           = alpha, 
+            gamma           = gamma
+        )
+        #------------------------------#
+        #   添加上l2正则化参数
+        #------------------------------#
+        loss_value  = tf.reduce_sum(net.losses) + loss_value
+        return loss_value
+    if strategy == None:
+        return val_step
+    else:
+        #----------------------#
+        #   多gpu验证
+        #----------------------#
+        @tf.function
+        def distributed_val_step(images, targets, net, optimizer):
+            per_replica_losses = strategy.run(val_step, args=(images, targets, net, optimizer,))
+            return strategy.reduce(tf.distribute.ReduceOp.MEAN, per_replica_losses,
+                                    axis=None)
+        return distributed_val_step
 
 def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, 
             input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, save_period, save_dir, strategy):
     train_step  = get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy)
+    val_step    = get_val_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy)
+    
     loss        = 0
     val_loss    = 0
     print('Start Train')
@@ -62,7 +105,6 @@ def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_va
                 break
             images, target0, target1, target2 = batch[0], batch[1], batch[2], batch[3]
             targets     = [target0, target1, target2]
-            targets     = [tf.convert_to_tensor(target) for target in targets]
             loss_value  = train_step(images, targets, net, optimizer)
             loss        = loss + loss_value
 
@@ -78,23 +120,8 @@ def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_va
                 break
             images, target0, target1, target2 = batch[0], batch[1], batch[2], batch[3]
             targets     = [target0, target1, target2]
-            targets     = [tf.convert_to_tensor(target) for target in targets]
-            #------------------------------#
-            #   计算loss
-            #------------------------------#
-            P5_output, P4_output, P3_output = net(images)
-            args        = [P5_output, P4_output, P3_output] + targets
-            loss_value  = yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, 
-                label_smoothing = label_smoothing,
-                balance         = [0.4, 1.0, 4],
-                box_ratio       = 0.05, 
-                obj_ratio       = 5 * (input_shape[0] * input_shape[1]) / (416 ** 2),
-                cls_ratio       = 1 * (num_classes / 80),
-                focal_loss      = focal_loss, 
-                focal_loss_ratio= 10,
-                alpha           = alpha, 
-                gamma           = gamma
-            )
+            loss_value  = val_step(images, targets, net, optimizer)
+            val_loss    = val_loss + loss_value
             #------------------------------#
             #   添加上l2正则化参数
             #------------------------------#
