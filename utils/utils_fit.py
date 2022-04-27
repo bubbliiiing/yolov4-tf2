@@ -122,11 +122,6 @@ def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_va
             targets     = [target0, target1, target2]
             loss_value  = val_step(images, targets, net, optimizer)
             val_loss    = val_loss + loss_value
-            #------------------------------#
-            #   添加上l2正则化参数
-            #------------------------------#
-            loss_value  = tf.reduce_sum(net.losses) + loss_value
-            val_loss = val_loss + loss_value
 
             pbar.set_postfix(**{'total_loss': float(val_loss) / (iteration + 1)})
             pbar.update(1)
