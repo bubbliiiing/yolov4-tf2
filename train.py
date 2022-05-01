@@ -12,7 +12,7 @@ from nets.yolo import get_train_model, yolo_body
 from nets.yolo_training import get_lr_scheduler
 from utils.callbacks import LossHistory, ModelCheckpoint
 from utils.dataloader import YoloDatasets
-from utils.utils import get_anchors, get_classes
+from utils.utils import get_anchors, get_classes, show_config
 from utils.utils_fit import fit_one_epoch
   
 '''
@@ -285,6 +285,12 @@ if __name__ == "__main__":
     num_train   = len(train_lines)
     num_val     = len(val_lines)
 
+    show_config(
+        classes_path = classes_path, anchors_path = anchors_path, anchors_mask = anchors_mask, model_path = model_path, input_shape = input_shape, \
+        Init_Epoch = Init_Epoch, Freeze_Epoch = Freeze_Epoch, UnFreeze_Epoch = UnFreeze_Epoch, Freeze_batch_size = Freeze_batch_size, Unfreeze_batch_size = Unfreeze_batch_size, Freeze_Train = Freeze_Train, \
+        Init_lr = Init_lr, Min_lr = Min_lr, optimizer_type = optimizer_type, momentum = momentum, lr_decay_type = lr_decay_type, \
+        save_period = save_period, save_dir = save_dir, num_workers = num_workers, num_train = num_train, num_val = num_val
+    )
     #-----------------------------------------------#
     #   总训练世代指的是遍历全部数据的总次数
     #   总训练步长指的是梯度下降的总次数 
@@ -293,10 +299,10 @@ if __name__ == "__main__":
     wanted_step = 5e4 if optimizer_type == "sgd" else 1.5e4
     total_step  = num_train // Unfreeze_batch_size * UnFreeze_Epoch
     if total_step <= wanted_step:
-        wanted_epoch = wanted_step // (num_train // Unfreeze_batch_size)
-        print("\033[1;33;40m\n[Warning] 使用%s优化器时，建议将训练总步长设置到%d以上。\033[0m"%(optimizer_type, wanted_step))
-        print("\033[1;33;40m[Warning] 本次运行的总训练数据量为%d，Unfreeze_batch_size为%d，共训练%d个Epoch，计算出总训练步长为%d。\033[0m"%(num_train, Unfreeze_batch_size, UnFreeze_Epoch, total_step))
-        print("\033[1;33;40m[Warning] 由于总训练步长为%d，小于建议总步长%d，建议设置总世代为%d。\033[0m"%(total_step, wanted_step, wanted_epoch))
+        wanted_epoch = wanted_step // (num_train // Unfreeze_batch_size) + 1
+        print("\n\033[1;33;44m[Warning] 使用%s优化器时，建议将训练总步长设置到%d以上。\033[0m"%(optimizer_type, wanted_step))
+        print("\033[1;33;44m[Warning] 本次运行的总训练数据量为%d，Unfreeze_batch_size为%d，共训练%d个Epoch，计算出总训练步长为%d。\033[0m"%(num_train, Unfreeze_batch_size, UnFreeze_Epoch, total_step))
+        print("\033[1;33;44m[Warning] 由于总训练步长为%d，小于建议总步长%d，建议设置总世代为%d。\033[0m"%(total_step, wanted_step, wanted_epoch))
         
     #------------------------------------------------------#
     #   主干特征提取网络特征通用，冻结训练可以加快训练速度
@@ -443,9 +449,11 @@ if __name__ == "__main__":
                                     monitor = 'val_loss', save_weights_only = True, save_best_only = False, period = save_period)
             checkpoint_last = ModelCheckpoint(os.path.join(save_dir, "last_epoch_weights.h5"), 
                                     monitor = 'val_loss', save_weights_only = True, save_best_only = False, period = 1)
+            checkpoint_best = ModelCheckpoint(os.path.join(save_dir, "best_epoch_weights.h5"), 
+                                    monitor = 'val_loss', save_weights_only = True, save_best_only = True, period = 1)
             early_stopping  = EarlyStopping(monitor='val_loss', min_delta = 0, patience = 10, verbose = 1)
             lr_scheduler    = LearningRateScheduler(lr_scheduler_func, verbose = 1)
-            callbacks       = [logging, loss_history, checkpoint, checkpoint_last, lr_scheduler]
+            callbacks       = [logging, loss_history, checkpoint, checkpoint_last, checkpoint_best, lr_scheduler]
 
             if start_epoch < end_epoch:
                 print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
@@ -482,8 +490,8 @@ if __name__ == "__main__":
                 #---------------------------------------#
                 lr_scheduler_func = get_lr_scheduler(lr_decay_type, Init_lr_fit, Min_lr_fit, UnFreeze_Epoch)
                 lr_scheduler    = LearningRateScheduler(lr_scheduler_func, verbose = 1)
-                callbacks       = [logging, loss_history, checkpoint, lr_scheduler]
-
+                callbacks       = [logging, loss_history, checkpoint, checkpoint_last, checkpoint_best, lr_scheduler]
+                    
                 for i in range(len(model_body.layers)): 
                     model_body.layers[i].trainable = True
                 if ngpus_per_node > 1:
