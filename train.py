@@ -14,7 +14,9 @@ from utils.callbacks import LossHistory, ModelCheckpoint
 from utils.dataloader import YoloDatasets
 from utils.utils import get_anchors, get_classes, show_config
 from utils.utils_fit import fit_one_epoch
-  
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
 '''
 训练自己的目标检测模型一定需要注意以下几点：
 1、训练前仔细检查自己的格式是否满足要求，该库要求数据集格式为VOC格式，需要准备好的内容有输入图片和标签
@@ -24,18 +26,13 @@ from utils.utils_fit import fit_one_epoch
 
    标签为.xml格式，文件中会有需要检测的目标信息，标签文件和输入图片文件相对应。
 
-2、训练好的权值文件保存在logs文件夹中，每个epoch都会保存一次，如果只是训练了几个step是不会保存的，epoch和step的概念要捋清楚一下。
-   在训练过程中，该代码并没有设定只保存最低损失的，因此按默认参数训练完会有100个权值，如果空间不够可以自行删除。
-   这个并不是保存越少越好也不是保存越多越好，有人想要都保存、有人想只保存一点，为了满足大多数的需求，还是都保存可选择性高。
-
-3、损失值的大小用于判断是否收敛，比较重要的是有收敛的趋势，即验证集损失不断下降，如果验证集损失基本上不改变的话，模型基本上就收敛了。
+2、损失值的大小用于判断是否收敛，比较重要的是有收敛的趋势，即验证集损失不断下降，如果验证集损失基本上不改变的话，模型基本上就收敛了。
    损失值的具体大小并没有什么意义，大和小只在于损失的计算方式，并不是接近于0才好。如果想要让损失好看点，可以直接到对应的损失函数里面除上10000。
    训练过程中的损失值会保存在logs文件夹下的loss_%Y_%m_%d_%H_%M_%S文件夹中
-
-4、调参是一门蛮重要的学问，没有什么参数是一定好的，现有的参数是我测试过可以正常训练的参数，因此我会建议用现有的参数。
-   但是参数本身并不是绝对的，比如随着batch的增大学习率也可以增大，效果也会好一些；过深的网络不要用太大的学习率等等。
-   这些都是经验上，只能靠各位同学多查询资料和自己试试了。
-'''  
+   
+3、训练好的权值文件保存在logs文件夹中，每个训练世代（Epoch）包含若干训练步长（Step），每个训练步长（Step）进行一次梯度下降。
+   如果只是训练了几个Step是不会保存的，Epoch和Step的概念要捋清楚一下。
+'''
 if __name__ == "__main__":
     #----------------------------------------------------#
     #   是否使用eager模式训练
@@ -245,6 +242,9 @@ if __name__ == "__main__":
     class_names, num_classes = get_classes(classes_path)
     anchors, num_anchors     = get_anchors(anchors_path)
 
+    #----------------------------------------------------#
+    #   判断是否多GPU载入模型和预训练权重
+    #----------------------------------------------------#
     if ngpus_per_node > 1:
         with strategy.scope():
             #------------------------------------------------------#
@@ -291,11 +291,12 @@ if __name__ == "__main__":
         Init_lr = Init_lr, Min_lr = Min_lr, optimizer_type = optimizer_type, momentum = momentum, lr_decay_type = lr_decay_type, \
         save_period = save_period, save_dir = save_dir, num_workers = num_workers, num_train = num_train, num_val = num_val
     )
-    #-----------------------------------------------#
+    #---------------------------------------------------------#
     #   总训练世代指的是遍历全部数据的总次数
     #   总训练步长指的是梯度下降的总次数 
-    #   计算建议Epoch时。只考虑了解冻部分
-    #-----------------------------------------------#
+    #   每个训练世代包含若干训练步长，每个训练步长进行一次梯度下降。
+    #   此处仅建议最低训练世代，上不封顶，计算时只考虑了解冻部分
+    #----------------------------------------------------------#
     wanted_step = 5e4 if optimizer_type == "sgd" else 1.5e4
     total_step  = num_train // Unfreeze_batch_size * UnFreeze_Epoch
     if total_step <= wanted_step:
