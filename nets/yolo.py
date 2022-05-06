@@ -44,7 +44,7 @@ def yolo_body(input_shape, anchors_mask, num_classes, weight_decay=5e-4):
     #   26,26,512
     #   13,13,1024
     #---------------------------------------------------#
-    feat1,feat2,feat3 = darknet_body(inputs)
+    feat1,feat2,feat3 = darknet_body(inputs, weight_decay=weight_decay)
 
     # 13,13,1024 -> 13,13,512 -> 13,13,1024 -> 13,13,512 -> 13,13,2048 -> 13,13,512 -> 13,13,1024 -> 13,13,512
     P5 = DarknetConv2D_BN_Leaky(512, (1,1), weight_decay=weight_decay)(feat3)

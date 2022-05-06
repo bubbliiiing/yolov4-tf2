@@ -86,7 +86,7 @@ def resblock_body(x, num_filters, num_blocks, all_narrow=True, weight_decay=5e-4
     route = Concatenate()([postconv, shortconv])
 
     # 最后对通道数进行整合
-    return DarknetConv2D_BN_Mish(num_filters, (1,1))(route)
+    return DarknetConv2D_BN_Mish(num_filters, (1,1), weight_decay=weight_decay)(route)
 
 #---------------------------------------------------#
 #   CSPdarknet53 的主体部分
