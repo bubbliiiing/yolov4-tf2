@@ -10,7 +10,7 @@ from tensorflow.keras.optimizers import SGD, Adam
 
 from nets.yolo import get_train_model, yolo_body
 from nets.yolo_training import get_lr_scheduler
-from utils.callbacks import LossHistory, ModelCheckpoint
+from utils.callbacks import EvalCallback, LossHistory, ModelCheckpoint
 from utils.dataloader import YoloDatasets
 from utils.utils import get_anchors, get_classes, show_config
 from utils.utils_fit import fit_one_epoch
@@ -200,6 +200,17 @@ if __name__ == "__main__":
     #------------------------------------------------------------------#
     save_dir            = 'logs'
     #------------------------------------------------------------------#
+    #   eval_flag       是否在训练时进行评估，评估对象为验证集
+    #                   安装pycocotools库后，评估体验更佳。
+    #   eval_period     代表多少个epoch评估一次，不建议频繁的评估
+    #                   评估需要消耗较多的时间，频繁评估会导致训练非常慢
+    #   此处获得的mAP会与get_map.py获得的会有所不同，原因有二：
+    #   （一）此处获得的mAP为验证集的mAP。
+    #   （二）此处设置评估参数较为保守，目的是加快评估速度。
+    #------------------------------------------------------------------#
+    eval_flag           = True
+    eval_period         = 10
+    #------------------------------------------------------------------#
     #   num_workers     用于设置是否使用多线程读取数据，1代表关闭多线程
     #                   开启后会加快数据读取速度，但是会占用更多内存
     #                   keras里开启多线程有些时候速度反而慢了许多
@@ -370,6 +381,8 @@ if __name__ == "__main__":
             time_str        = datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S')
             log_dir         = os.path.join(save_dir, "loss_" + str(time_str))
             loss_history    = LossHistory(log_dir)
+            eval_callback   = EvalCallback(model_body, input_shape, anchors, anchors_mask, class_names, num_classes, val_lines, log_dir, \
+                                            eval_flag=eval_flag, period=eval_period)
             #---------------------------------------#
             #   开始模型训练
             #---------------------------------------#
@@ -421,7 +434,7 @@ if __name__ == "__main__":
                 lr = lr_scheduler_func(epoch)
                 K.set_value(optimizer.lr, lr)
 
-                fit_one_epoch(model_body, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, 
+                fit_one_epoch(model_body, loss_history, eval_callback, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, 
                             end_epoch, input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, focal_alpha, focal_gamma, save_period, save_dir, strategy)
 
                 train_dataloader.on_epoch_end()
@@ -454,7 +467,9 @@ if __name__ == "__main__":
                                     monitor = 'val_loss', save_weights_only = True, save_best_only = True, period = 1)
             early_stopping  = EarlyStopping(monitor='val_loss', min_delta = 0, patience = 10, verbose = 1)
             lr_scheduler    = LearningRateScheduler(lr_scheduler_func, verbose = 1)
-            callbacks       = [logging, loss_history, checkpoint, checkpoint_last, checkpoint_best, lr_scheduler]
+            eval_callback   = EvalCallback(model_body, input_shape, anchors, anchors_mask, class_names, num_classes, val_lines, log_dir, \
+                                            eval_flag=eval_flag, period=eval_period)
+            callbacks       = [logging, loss_history, checkpoint, checkpoint_last, checkpoint_best, lr_scheduler, eval_callback]
 
             if start_epoch < end_epoch:
                 print('Train on {} samples, val on {} samples, with batch size {}.'.format(num_train, num_val, batch_size))
@@ -491,7 +506,7 @@ if __name__ == "__main__":
                 #---------------------------------------#
                 lr_scheduler_func = get_lr_scheduler(lr_decay_type, Init_lr_fit, Min_lr_fit, UnFreeze_Epoch)
                 lr_scheduler    = LearningRateScheduler(lr_scheduler_func, verbose = 1)
-                callbacks       = [logging, loss_history, checkpoint, checkpoint_last, checkpoint_best, lr_scheduler]
+                callbacks       = [logging, loss_history, checkpoint, checkpoint_last, checkpoint_best, lr_scheduler, eval_callback]
                     
                 for i in range(len(model_body.layers)): 
                     model_body.layers[i].trainable = True

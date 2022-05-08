@@ -91,7 +91,7 @@ def get_val_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoot
                                     axis=None)
         return distributed_val_step
 
-def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, 
+def fit_one_epoch(net, loss_history, eval_callback, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, 
             input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, save_period, save_dir, strategy):
     train_step  = get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy)
     val_step    = get_val_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy)
@@ -129,6 +129,7 @@ def fit_one_epoch(net, loss_history, optimizer, epoch, epoch_step, epoch_step_va
 
     logs = {'loss': loss.numpy() / epoch_step, 'val_loss': val_loss.numpy() / epoch_step_val}
     loss_history.on_epoch_end([], logs)
+    eval_callback.on_epoch_end(epoch, logs)
     print('Epoch:'+ str(epoch+1) + '/' + str(Epoch))
     print('Total Loss: %.3f || Val Loss: %.3f ' % (loss / epoch_step, val_loss / epoch_step_val))
     
