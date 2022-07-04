@@ -8,31 +8,18 @@ from tqdm import tqdm
 #------------------------------#
 #   防止bug
 #------------------------------#
-def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy):
+def get_train_step_fn(strategy):
     @tf.function
     def train_step(imgs, targets, net, optimizer):
         with tf.GradientTape() as tape:
             #------------------------------#
             #   计算loss
             #------------------------------#
-            P5_output, P4_output, P3_output = net(imgs, training=True)
-            args        = [P5_output, P4_output, P3_output] + targets
-            loss_value  = yolo_loss(
-                args, input_shape, anchors, anchors_mask, num_classes, 
-                label_smoothing = label_smoothing,
-                balance         = [0.4, 1.0, 4],
-                box_ratio       = 0.05, 
-                obj_ratio       = 5 * (input_shape[0] * input_shape[1]) / (416 ** 2),
-                cls_ratio       = 1 * (num_classes / 80),
-                focal_loss      = focal_loss, 
-                focal_loss_ratio= 10,
-                alpha           = alpha, 
-                gamma           = gamma
-            )
+            loss_value = net([imgs] + targets, training=True)
             #------------------------------#
             #   添加上l2正则化参数
             #------------------------------#
-            loss_value  = tf.reduce_sum(net.losses) + loss_value
+            loss_value = tf.reduce_sum(net.losses) + loss_value
         grads = tape.gradient(loss_value, net.trainable_variables)
         optimizer.apply_gradients(zip(grads, net.trainable_variables))
         return loss_value
@@ -53,30 +40,17 @@ def get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smo
 #----------------------#
 #   防止bug
 #----------------------#
-def get_val_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy):
+def get_val_step_fn(strategy):
     @tf.function
     def val_step(imgs, targets, net, optimizer):
         #------------------------------#
         #   计算loss
         #------------------------------#
-        P5_output, P4_output, P3_output = net(imgs, training=False)
-        args        = [P5_output, P4_output, P3_output] + targets
-        loss_value  = yolo_loss(
-            args, input_shape, anchors, anchors_mask, num_classes, 
-            label_smoothing = label_smoothing,
-            balance         = [0.4, 1.0, 4],
-            box_ratio       = 0.05, 
-            obj_ratio       = 5 * (input_shape[0] * input_shape[1]) / (416 ** 2),
-            cls_ratio       = 1 * (num_classes / 80),
-            focal_loss      = focal_loss, 
-            focal_loss_ratio= 10,
-            alpha           = alpha, 
-            gamma           = gamma
-        )
+        loss_value = net([imgs] + targets, training=False)
         #------------------------------#
         #   添加上l2正则化参数
         #------------------------------#
-        loss_value  = tf.reduce_sum(net.losses) + loss_value
+        loss_value = tf.reduce_sum(net.losses) + loss_value
         return loss_value
     if strategy == None:
         return val_step
@@ -91,10 +65,9 @@ def get_val_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoot
                                     axis=None)
         return distributed_val_step
 
-def fit_one_epoch(net, loss_history, eval_callback, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, 
-            input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, save_period, save_dir, strategy):
-    train_step  = get_train_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy)
-    val_step    = get_val_step_fn(input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, alpha, gamma, strategy)
+def fit_one_epoch(net, loss_history, eval_callback, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, save_period, save_dir, strategy):
+    train_step  = get_train_step_fn(strategy)
+    val_step    = get_val_step_fn(strategy)
     
     loss        = 0
     val_loss    = 0

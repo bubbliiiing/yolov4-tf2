@@ -204,6 +204,10 @@ if __name__ == "__main__":
     focal_alpha         = 0.25
     focal_gamma         = 2
     #------------------------------------------------------------------#
+    #   iou_type        使用什么iou损失，ciou或者siou
+    #------------------------------------------------------------------#
+    iou_type            = 'ciou'
+    #------------------------------------------------------------------#
     #   save_period     多少个epoch保存一次权值
     #------------------------------------------------------------------#
     save_period         = 10
@@ -281,8 +285,7 @@ if __name__ == "__main__":
                 print('Load weights {}.'.format(model_path))
                 model_body.load_weights(model_path, by_name=True, skip_mismatch=True)
                 
-            if not eager:
-                model = get_train_model(model_body, input_shape, num_classes, anchors, anchors_mask, label_smoothing, focal_loss, focal_alpha, focal_gamma)
+            model = get_train_model(model_body, input_shape, num_classes, anchors, anchors_mask, label_smoothing, focal_loss, focal_alpha, focal_gamma, iou_type)
     else:
         #------------------------------------------------------#
         #   创建yolo模型
@@ -295,8 +298,7 @@ if __name__ == "__main__":
             print('Load weights {}.'.format(model_path))
             model_body.load_weights(model_path, by_name=True, skip_mismatch=True)
             
-        if not eager:
-            model = get_train_model(model_body, input_shape, num_classes, anchors, anchors_mask, label_smoothing, focal_loss, focal_alpha, focal_gamma)
+        model = get_train_model(model_body, input_shape, num_classes, anchors, anchors_mask, label_smoothing, focal_loss, focal_alpha, focal_gamma, iou_type)
 
     #---------------------------#
     #   读取数据集对应的txt
@@ -450,8 +452,7 @@ if __name__ == "__main__":
                 lr = lr_scheduler_func(epoch)
                 K.set_value(optimizer.lr, lr)
 
-                fit_one_epoch(model_body, loss_history, eval_callback, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, 
-                            end_epoch, input_shape, anchors, anchors_mask, num_classes, label_smoothing, focal_loss, focal_alpha, focal_gamma, save_period, save_dir, strategy)
+                fit_one_epoch(model, loss_history, eval_callback, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, end_epoch, save_period, save_dir, strategy)
 
                 train_dataloader.on_epoch_end()
                 val_dataloader.on_epoch_end()
@@ -526,6 +527,7 @@ if __name__ == "__main__":
                     
                 for i in range(len(model_body.layers)): 
                     model_body.layers[i].trainable = True
+
                 if ngpus_per_node > 1:
                     with strategy.scope():
                         model.compile(optimizer = optimizer, loss={'yolo_loss': lambda y_true, y_pred: y_pred})
