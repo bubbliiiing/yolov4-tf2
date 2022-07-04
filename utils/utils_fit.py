@@ -1,7 +1,6 @@
 import os
 
 import tensorflow as tf
-from nets.yolo import yolo_loss
 from tqdm import tqdm
 
 
