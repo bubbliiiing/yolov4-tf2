@@ -32,6 +32,8 @@ Mobilenet-Yolov4 | https://github.com/bubbliiiing/mobilenet-yolov4-tf2
 YoloV5-V5.0 | https://github.com/bubbliiiing/yolov5-tf2
 YoloV5-V6.1 | https://github.com/bubbliiiing/yolov5-v6.1-tf2
 YoloX | https://github.com/bubbliiiing/yolox-tf2
+Yolov7 | https://github.com/bubbliiiing/yolov7-tf2
+Yolov7-tiny | https://github.com/bubbliiiing/yolov7-tiny-tf2
 
 ## 性能情况
 | 训练数据集 | 权值文件名称 | 测试数据集 | 输入图片大小 | mAP 0.5:0.95 | mAP 0.5 |
