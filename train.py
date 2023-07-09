@@ -12,7 +12,7 @@ from nets.yolo import get_train_model, yolo_body
 from nets.yolo_training import get_lr_scheduler
 from utils.callbacks import EvalCallback, LossHistory, ModelCheckpoint
 from utils.dataloader import YoloDatasets
-from utils.utils import get_anchors, get_classes, show_config
+from utils.utils import get_anchors, get_classes, show_config, seed_everything
 from utils.utils_fit import fit_one_epoch
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -44,6 +44,11 @@ if __name__ == "__main__":
     #               在使用多GPU时，每个卡上的batch为总batch除以卡的数量。
     #---------------------------------------------------------------------#
     train_gpu       = [0,]
+    #----------------------------------------------#
+    #   Seed    用于固定随机种子
+    #           使得每次独立训练都可以获得一样的结果
+    #----------------------------------------------#
+    seed            = 11
     #---------------------------------------------------------------------#
     #   classes_path    指向model_data下的txt，与自己训练的数据集相关 
     #                   训练前一定要修改classes_path，使其对应自己的数据集
@@ -241,6 +246,7 @@ if __name__ == "__main__":
     train_annotation_path   = '2007_train.txt'
     val_annotation_path     = '2007_val.txt'
 
+    seed_everything(seed)
     #------------------------------------------------------#
     #   设置用到的显卡
     #------------------------------------------------------#
